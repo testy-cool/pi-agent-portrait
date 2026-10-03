@@ -65,7 +65,7 @@ No text, letters, numbers or logos anywhere."""
 
 PHOTO = """
 
-The second attached image is a photo of a real person. Draw the character as a pixel-art likeness of that person: same hair colour and style, face shape, eye colour, and facial hair or none. Keep it friendly and flattering."""
+The second attached image is a photo of a real person. Draw the character as a pixel-art likeness of that person: same hair colour and style, face shape, eye colour, and facial hair or none. Match their apparent age: an adult must look like an adult, not a child or teenager. Take only the poses, framing and pixel style from the reference sheet, not its face proportions: its large eyes and round face belong to that character only. For an adult draw smaller, narrower eyes, a longer face, visible cheekbones, a defined jaw and chin, an adult nose, and an adult neck and shoulders. Keep the eye colour the same in every cell, including those lit by a screen. Keep it friendly and flattering."""
 
 CODEX_ASK = """Use your image generation tool. Pass the attached images to it as reference images, not just as context: ref.png is the pose sheet{photo_note}.
 
