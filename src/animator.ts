@@ -58,6 +58,12 @@ export class Animator {
   // starts and kept until it ends, so poses from different drawings never mix.
   private variant = "";
 
+  // Bumped on every transition; delayed blink and think-swap callbacks
+  // check it, so one from an earlier visit cannot draw over a new take.
+  private epoch = 0;
+
+  private tui: TUI | null = null;
+
   // Talk state
   private talkWordCount = 0;
   private talkStartTime = 0;
@@ -75,9 +81,12 @@ export class Animator {
 
   setRenderer(renderer: Renderer) {
     this.renderer = renderer;
+    // A new renderer (image <-> ASCII) needs the TUI to request redraws.
+    this.renderer.setTui(this.tui);
   }
 
   setTui(tui: TUI | null) {
+    this.tui = tui;
     this.renderer.setTui(tui);
   }
 
@@ -132,6 +141,13 @@ export class Animator {
     while (!this.renderer.hasFrames(state) && FALLBACK_STATE[state]) {
       state = FALLBACK_STATE[state]!;
     }
+    // Older sets have no success frames: go straight on, as they did before.
+    if (state === "success" && !this.renderer.hasFrames(state)) {
+      const next = this.holdNextState;
+      this.holdNextState = "idle";
+      if (next !== "success") return this.transitionTo(next);
+    }
+    this.epoch++;
     log(`transition: ${this.currentState} -> ${state}`);
     const variants = [...new Set(this.renderer.listFrames(state).map(variantOf))];
     this.variant = variants.length ? variants[Math.floor(Math.random() * variants.length)]! : "";
@@ -181,6 +197,8 @@ export class Animator {
     if (this.renderer.listFrames("talk").length && weights) {
       if (this.renderer.showFrame("talk", this.named("talk", weightedPick(weights)))) return;
     }
+    const files = this.variantFrames("talk");
+    if (files.length && this.renderer.showFrame("talk", files[Math.floor(Math.random() * files.length)]!)) return;
     this.renderer.showTalkFrame(this.emotesConfig);
   }
 
@@ -199,6 +217,7 @@ export class Animator {
     const defaultFile = this.named("idle", this.emotesConfig.idle?.default ?? "idle.png");
     this.renderer.showFrame("idle", defaultFile);
     this.scheduleBlink();
+    if (this.sleepTimer) { clearTimeout(this.sleepTimer); this.sleepTimer = null; }
     if (this.config.sleepAfterMs > 0) {
       this.sleepTimer = setTimeout(() => {
         if (this.currentState === "idle") this.transitionTo("sleep");
@@ -225,17 +244,19 @@ export class Animator {
     const doubleBlink = Math.random() < 0.15;
     const blinkDuration = 150;
     const defaultFile = this.named("idle", this.emotesConfig.idle?.default ?? "idle.png");
+    const epoch = this.epoch;
+    const stale = () => this.currentState !== "idle" || this.epoch !== epoch;
 
     setTimeout(() => {
-      if (this.currentState !== "idle") return;
+      if (stale()) return;
       this.renderer.showFrame("idle", defaultFile, true);
 
       if (doubleBlink) {
         setTimeout(() => {
-          if (this.currentState !== "idle") return;
+          if (stale()) return;
           this.renderer.showFrame("idle", blinkFile, true);
           setTimeout(() => {
-            if (this.currentState !== "idle") return;
+            if (stale()) return;
             this.renderer.showFrame("idle", defaultFile, true);
             this.scheduleBlink();
           }, blinkDuration);
@@ -269,8 +290,9 @@ export class Animator {
     }
 
     const defaultFile = this.named("think", this.emotesConfig.think?.default ?? "think.png");
+    const epoch = this.epoch;
     setTimeout(() => {
-      if (this.currentState !== "think") return;
+      if (this.currentState !== "think" || this.epoch !== epoch) return;
       this.renderer.showFrame("think", defaultFile, true);
       this.scheduleThinkSwap();
     }, 800);
