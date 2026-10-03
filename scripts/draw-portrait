@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""Draw a portrait set for a pi agent and install it.
+
+Sends the built-in default set as a 5x5 reference sheet to an image model,
+asks for the same 19 poses drawn as a new character, cuts the answer into
+128px frames and installs it as an emote set with a config that selects it.
+
+usage:
+  draw-portrait --name NAME --role "what the agent does" [--dest DIR]
+                [--backend auto|codex|azure]
+  draw-portrait --name NAME --role "..." --photo face.jpg   (look like a person)
+  draw-portrait --name NAME --sheet my-sheet.png [--dest DIR]
+  draw-portrait --print-prompt --name NAME --role "..."   (for ChatGPT etc.)
+  draw-portrait --print-reference out.png                 (the sheet to attach)
+
+--dest is the pi-emote config folder, default ./.pi/extensions/pi-emote.
+
+Backends:
+  codex  the Codex CLI's built-in image tool, on your ChatGPT login
+  azure  an Azure OpenAI image deployment; set AZURE_IMAGE_ENDPOINT (the full
+         .../openai/v1/images/edits URL), AZURE_IMAGE_KEY, AZURE_IMAGE_MODEL
+  auto   codex when it is installed, else azure; azure is also tried when
+         codex fails and the Azure variables are set
+"""
+import argparse, base64, fcntl, json, os, re, shutil, subprocess, sys, tempfile, urllib.request
+
+from PIL import Image
+import numpy as np
+
+ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+# The 19 frames of the default set, in the order they sit on the sheet.
+FRAMES = ["idle/idle.png", "idle/idle_blink.png", "hi/hi1.png", "hi/hi2.png", "talk/talk_close.png",
+          "talk/talk_small.png", "talk/talk_mid.png", "talk/talk_wide.png", "think/think.png",
+          "think/think_hard.png", "read/read1.png", "read/read2.png", "write/write1.png",
+          "write/write2.png", "tool/tool1.png", "tool/tool2.png", "failure/failure1.png",
+          "failure/failure2.png", "compact/compact1.png"]
+
+PROMPT = """The attached image is a pixel-art emote sheet: one character drawn in 19 poses on a 5 by 5 grid, read left to right, top to bottom, with the last 6 cells empty. Make a new sheet with exactly the same grid, the same 19 poses in the same cells, the same framing (head and shoulders, centred, same size in every cell), the same pixel-art style, and the same dark navy tiled background inside every used cell. Leave the last 6 cells plain white.
+
+The new character is {name}, an assistant whose job is: {role}
+Design a distinct, appealing character that suits that job, with a clear look (hair, clothing, one accessory) that stays identical in every cell. Do not copy the original character's face, hair, hair clip or clothes.
+
+Cells, in order:
+1 idle, relaxed neutral face, eyes open
+2 same as 1 with eyes closed (blink)
+3 smiling, waving hello with one hand
+4 smiling wider, hand waving in a different position
+5 talking, mouth closed
+6 talking, mouth slightly open
+7 talking, mouth half open
+8 talking, mouth wide open
+9 thinking, looking up, hand on chin, small thought bubble
+10 thinking hard, frowning, hand on temple
+11 reading a small book, wearing reading glasses
+12 reading, eyes moved further down the page
+13 typing on a laptop seen from behind its lid, screen glow on the face
+14 typing, slightly different pose
+15 using a phone, screen glow on the face
+16 using a phone, slightly different pose
+17 something failed: wincing, hand on forehead
+18 something failed: sighing, eyes closed
+19 tidying up: tired but content, eyes half closed
+
+No text, letters, numbers or logos anywhere."""
+
+PHOTO = """
+
+The second attached image is a photo of a real person. Draw the character as a pixel-art likeness of that person: same hair colour and style, face shape, eye colour, and facial hair or none. Keep it friendly and flattering."""
+
+CODEX_ASK = """Use your image generation tool. Pass the attached images to it as reference images, not just as context: ref.png is the pose sheet{photo_note}.
+
+{prompt}
+
+Save the result in the current folder as sheet.png, square."""
+
+
+def reference_sheet(path):
+    cell, size = 204, 1024
+    sheet = Image.new("RGB", (size, size), (255, 255, 255))
+    for i, f in enumerate(FRAMES):
+        im = Image.open(os.path.join(ROOT, "emotes/default", f)).convert("RGBA")
+        im = im.resize((cell, cell), Image.NEAREST)
+        bg = Image.new("RGBA", (cell, cell), (255, 255, 255, 255))
+        bg.alpha_composite(im)
+        sheet.paste(bg.convert("RGB"), ((i % 5) * cell + 2, (i // 5) * cell + 2))
+    sheet.save(path)
+
+
+def draw_codex(work, prompt, photo):
+    images = ["-i", "ref.png"] + (["-i", "photo.png"] if photo else [])
+    note = ", photo.png is the person to draw" if photo else ""
+    subprocess.run(["codex", "exec", "--skip-git-repo-check", "-s", "workspace-write", *images, "-"],
+                   input=CODEX_ASK.format(prompt=prompt, photo_note=note), text=True, cwd=work, check=True,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=900)
+    if not os.path.isfile(os.path.join(work, "sheet.png")):
+        raise RuntimeError("codex finished without saving sheet.png")
+
+
+def draw_azure(work, prompt, photo):
+    url, key, model = (os.environ.get(k) for k in ("AZURE_IMAGE_ENDPOINT", "AZURE_IMAGE_KEY", "AZURE_IMAGE_MODEL"))
+    if not (url and key and model):
+        raise RuntimeError("set AZURE_IMAGE_ENDPOINT, AZURE_IMAGE_KEY and AZURE_IMAGE_MODEL")
+    boundary = "drawportrait"
+    parts = []
+    for k, v in (("model", model), ("prompt", prompt), ("size", "1024x1024"), ("quality", "high"), ("n", "1")):
+        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode())
+    for f in ["ref.png"] + (["photo.png"] if photo else []):
+        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="image[]"; filename="{f}"\r\n'
+                     f"Content-Type: image/png\r\n\r\n".encode() + open(os.path.join(work, f), "rb").read() + b"\r\n")
+    parts.append(f"--{boundary}--\r\n".encode())
+    req = urllib.request.Request(url, data=b"".join(parts), headers={
+        "api-key": key, "Content-Type": f"multipart/form-data; boundary={boundary}"})
+    with urllib.request.urlopen(req, timeout=600) as r:
+        data = json.load(r)
+    open(os.path.join(work, "sheet.png"), "wb").write(base64.b64decode(data["data"][0]["b64_json"]))
+
+
+def draw(work, prompt, backend, photo):
+    azure_ready = all(os.environ.get(k) for k in ("AZURE_IMAGE_ENDPOINT", "AZURE_IMAGE_KEY", "AZURE_IMAGE_MODEL"))
+    if backend == "azure" or (backend == "auto" and not shutil.which("codex")):
+        print("drawing with Azure, about two minutes...", flush=True)
+        return draw_azure(work, prompt, photo)
+    print("drawing with Codex, about two minutes...", flush=True)
+    try:
+        draw_codex(work, prompt, photo)
+    except Exception as e:
+        if backend == "codex" or not azure_ready:
+            raise
+        print(f"codex failed ({e}), trying Azure...", flush=True)
+        draw_azure(work, prompt, photo)
+
+
+def cut(sheet_path, dst):
+    """Image models keep the 5-column grid but stop the rows where the white
+    cells start; frames are square crops centred in each grid slot."""
+    im = Image.open(sheet_path).convert("RGB")
+    a = np.asarray(im).astype(int)
+    dark = a.mean(axis=2) <= 200
+    margin = im.width // 20
+    bottom = np.where(dark[:, margin])[0].max() + 1
+    right = np.where(dark[im.height // 10, :])[0].max() + 1
+    cw, ch = right / 5, bottom / 4
+    side = int(min(cw, ch) * 0.97)
+    for i, f in enumerate(FRAMES):
+        cx, cy = (i % 5 + 0.5) * cw, (i // 5 + 0.5) * ch
+        left, top = round(cx - side / 2), round(cy - side / 2)
+        os.makedirs(os.path.dirname(os.path.join(dst, f)), exist_ok=True)
+        im.crop((left, top, left + side, top + side)).resize((128, 128), Image.LANCZOS).save(os.path.join(dst, f))
+
+
+def main():
+    p = argparse.ArgumentParser(description="Draw a portrait set for a pi agent.")
+    p.add_argument("--name")
+    p.add_argument("--role", default="")
+    p.add_argument("--dest", default=".pi/extensions/pi-emote")
+    p.add_argument("--backend", choices=["auto", "codex", "azure"], default="auto")
+    p.add_argument("--sheet", help="cut and install a sheet you already made")
+    p.add_argument("--photo", help="photo of a person the character should look like")
+    p.add_argument("--print-prompt", action="store_true")
+    p.add_argument("--print-reference", metavar="PNG")
+    a = p.parse_args()
+
+    if a.print_reference:
+        return reference_sheet(a.print_reference)
+    if not a.name or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", a.name):
+        sys.exit("--name is needed: letters, digits, . _ - only")
+    prompt = PROMPT.format(name=a.name, role=a.role or "a helpful assistant") + (PHOTO if a.photo else "")
+    if a.print_prompt:
+        return print(prompt)
+
+    emotes = os.path.join(a.dest, "emotes")
+    os.makedirs(emotes, exist_ok=True)
+    # One drawing per destination at a time; a second run waits.
+    lock = open(os.path.join(a.dest, ".lock"), "w")
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    work = tempfile.mkdtemp(prefix=".work-", dir=a.dest)
+    try:
+        sheet = os.path.join(work, "sheet.png")
+        if a.sheet:
+            shutil.copy(a.sheet, sheet)
+        else:
+            reference_sheet(os.path.join(work, "ref.png"))
+            if a.photo:
+                Image.open(a.photo).convert("RGB").save(os.path.join(work, "photo.png"))
+            draw(work, prompt, a.backend, bool(a.photo))
+        # Build the whole new set first, so a bad sheet leaves the old one.
+        new = os.path.join(work, "set")
+        cut(sheet, new)
+        shutil.copy(sheet, os.path.join(new, "sheet.png"))
+        shutil.copy(os.path.join(ROOT, "emotes/default/emotes.json"), new)
+        dst = os.path.join(emotes, a.name)
+        if os.path.isdir(dst):
+            os.rename(dst, os.path.join(work, "old"))
+        os.rename(new, dst)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    config_path = os.path.join(a.dest, "config.json")
+    config = json.load(open(config_path)) if os.path.isfile(config_path) else {}
+    config["emotes"] = [{"model": "*", "emote-set": a.name}]
+    json.dump(config, open(config_path, "w"), indent=2)
+    print(f"portrait ready: {os.path.join(dst, 'sheet.png')}")
+
+
+main()
