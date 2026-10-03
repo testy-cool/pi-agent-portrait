@@ -104,6 +104,24 @@ Try one in any project with `/portrait quill`.
 
 Sets are welcome by PR, see [Custom Emotes](#custom-emotes).
 
+## How drawing works
+
+`draw-portrait` makes one image model call per character. All 30 frames come back on a single sheet, which is what keeps the face, clothes and colours the same in every frame.
+
+**1. It sends a reference sheet and a prompt.** The reference is a 6 by 5 grid with the `default` set's 19 poses and 11 empty cells for the newer states. It shows the model the grid, the framing and the pixel-art style. The prompt describes the new character and lists all 30 poses in order. See both with `--print-reference ref.png` and `--print-prompt`.
+
+<img src="docs/how/1-reference.png" width="560" alt="The reference sheet: 19 poses of the default character and 11 empty cells">
+
+**2. The model draws a new sheet.** The same grid, with the new character in all 30 cells. This is the sheet nova came back with, from a one-line brief:
+
+<img src="docs/how/2-sheet.png" width="560" alt="nova's sheet: 30 poses on a 6 by 5 grid">
+
+**3. It cuts the sheet into frames and installs them.** It finds where the dark background ends, splits that into 30 equal cells, crops a square from the middle of each and saves it at 128 by 128 under its state, such as `think/think_hard.png`. `--print-guide emotes/nova guide.png` shows every frame with its file name:
+
+<img src="docs/how/3-frames.png" width="680" alt="nova's 30 frames, each labelled with its file name">
+
+Once a character has all 30 frames, it can be the reference for the next one with `--template emotes/nova`. The model then sees every pose drawn, not 11 empty cells.
+
 ## Drawing options
 
 ```bash
@@ -124,11 +142,9 @@ For the most faithful likeness, first ask an image tool for one pixel-art portra
 
 ### More takes
 
-`draw-portrait --name <name> --variant 2` draws the same character again in 30 different poses (a salute instead of a wave, binoculars instead of a magnifying glass) and adds them as `<frame>_v2.png`. Take 1's sheet is the character reference, so face, clothes and details stay the same. Each time a state starts the portrait picks one take at random and keeps it until the state ends. Use 3, 4 and so on for more.
+`draw-portrait --name <name> --variant 2` draws the same character again in 30 different poses (a salute instead of a wave, binoculars instead of a magnifying glass) and adds them as `<frame>_v2.png`. Take 1's sheet is the character reference, so face, clothes and details stay the same. Each time a state starts the portrait picks one take at random and keeps it until the state ends. Use 3, 4 and so on for more. oana's two takes:
 
-### Templates
-
-A finished 30-frame set can be the pose reference for the next character, so the model sees every pose drawn instead of 11 empty cells: `draw-portrait --template path/to/emotes/<name> --name ...`. `--print-guide path/to/emotes/<name> guide.png` saves that set with each frame's name under it.
+<img src="docs/how/4-takes.png" width="760" alt="oana's first and second take for eight states: same face, different poses">
 
 ### Without the script
 
