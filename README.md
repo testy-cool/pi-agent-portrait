@@ -85,9 +85,18 @@ The prompt asks for the 19 poses on a 5 by 5 grid in a fixed order (idle, blink,
 | read | `read` tool / reading tool output |
 | write | `write` or `edit` tool |
 | tool | Any other tool |
+| bash | `bash` tool (falls back to tool) |
+| search | Tools whose name mentions search, web, fetch, browse, scrape or crawl (falls back to tool) |
 | success | Successful tool execution |
 | failure | Failed tool execution |
 | compact | Context compaction |
+| heard | You sent a message (falls back to idle) |
+| wait | Pi is waiting on a question for you (falls back to idle) |
+| interrupted | You pressed Esc during a reply (falls back to failure) |
+| error | The model request failed (falls back to failure) |
+| sleep | Idle for `sleepAfterMs`, 3 minutes by default; 0 turns it off (falls back to idle) |
+
+Sets without frames for a newer state show the state in brackets, so older sets keep working. `scripts/draw-portrait` draws all of them: a 6 by 5 sheet of 30 frames. Pass `--layout 19` to install an older 5 by 4 sheet.
 
 ## Config
 

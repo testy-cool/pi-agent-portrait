@@ -2,7 +2,8 @@
 """Draw a portrait set for a pi agent and install it.
 
 Sends the built-in default set as a 5x5 reference sheet to an image model,
-asks for the same 19 poses drawn as a new character, cuts the answer into
+asks for its 19 poses plus 11 newer ones (30 cells, 6 by 5) drawn as a new
+character, cuts the answer into
 128px frames and installs it as an emote set with a config that selects it.
 
 usage:
@@ -36,8 +37,14 @@ FRAMES = ["idle/idle.png", "idle/idle_blink.png", "hi/hi1.png", "hi/hi2.png", "t
           "think/think_hard.png", "read/read1.png", "read/read2.png", "write/write1.png",
           "write/write2.png", "tool/tool1.png", "tool/tool2.png", "failure/failure1.png",
           "failure/failure2.png", "compact/compact1.png"]
+# Newer states, drawn in the 11 cells after the original 19.
+NEW_FRAMES = ["success/success1.png", "success/success2.png", "sleep/sleep1.png", "sleep/sleep2.png",
+              "wait/wait1.png", "wait/wait2.png", "interrupted/interrupted1.png", "search/search1.png",
+              "bash/bash1.png", "error/error1.png", "heard/heard1.png"]
+# Sheets made before the newer states were 5 by 4 with 19 cells.
+LAYOUTS = {"30": (FRAMES + NEW_FRAMES, 6, 5), "19": (FRAMES, 5, 4)}
 
-PROMPT = """The attached image is a pixel-art emote sheet: one character drawn in 19 poses on a 5 by 5 grid, read left to right, top to bottom, with the last 6 cells empty. Make a new sheet with exactly the same grid, the same 19 poses in the same cells, the same framing (head and shoulders, centred, same size in every cell), the same pixel-art style, and the same dark navy tiled background inside every used cell. Leave the last 6 cells plain white.
+PROMPT = """The attached image is a pixel-art emote sheet on a 6 by 5 grid of 30 cells, read left to right, top to bottom. The first 19 cells show one character in 19 poses; the last 11 cells are empty. Make a new sheet with exactly the same 6 by 5 grid, all 30 cells filled: the same 19 poses in the first 19 cells, and the 11 new poses listed below in the last 11 cells. Use the same framing in every cell (head and shoulders, centred, same size), the same pixel-art style, and the same dark navy tiled background.
 
 The new character is {name}, an assistant whose job is: {role}
 Design a distinct, appealing character that suits that job, with a clear look (hair, clothing, one accessory) that stays identical in every cell. Do not copy the original character's face, hair, hair clip or clothes.
@@ -62,6 +69,17 @@ Cells, in order:
 17 something failed: wincing, hand on forehead
 18 something failed: sighing, eyes closed
 19 tidying up: tired but content, eyes half closed
+20 it worked: pleased, small fist pump
+21 it worked: satisfied smile and a nod, eyes closed
+22 asleep: dozing, eyes closed, head tilted, a small sleep bubble
+23 asleep: deeper sleep, head lower, mouth slightly open
+24 waiting for an answer: looking straight out, eyebrows raised, expectant
+25 waiting for an answer: patient, glancing at a wristwatch
+26 interrupted: startled, eyes wide, both hands up
+27 searching the web: peering through a magnifying glass
+28 running a command: typing on a small retro terminal, green screen glow on the face
+29 connection error: frowning at a broken cable and a burst of static
+30 heard you: attentive, small nod, hand cupped to the ear
 
 No text, letters, numbers or logos anywhere."""
 
@@ -79,18 +97,20 @@ CODEX_ASK = """Use your image generation tool. Pass the attached images to it as
 
 {prompt}
 
-Save the result in the current folder as sheet.png, square."""
+Save the result in the current folder as sheet.png, landscape, with the same 6 by 5 cell layout as ref.png."""
 
 
 def reference_sheet(path):
-    cell, size = 204, 1024
-    sheet = Image.new("RGB", (size, size), (255, 255, 255))
+    """The 19 default frames in a 6 by 5 grid; the 11 newer cells are left
+    as plain background for the model to fill."""
+    cell, size = 204, 1224
+    sheet = Image.new("RGB", (size, 1020), (18, 20, 33))
     for i, f in enumerate(FRAMES):
         im = Image.open(os.path.join(ROOT, "emotes/default", f)).convert("RGBA")
         im = im.resize((cell, cell), Image.NEAREST)
         bg = Image.new("RGBA", (cell, cell), (255, 255, 255, 255))
         bg.alpha_composite(im)
-        sheet.paste(bg.convert("RGB"), ((i % 5) * cell + 2, (i // 5) * cell + 2))
+        sheet.paste(bg.convert("RGB"), ((i % 6) * cell, (i // 6) * cell))
     sheet.save(path)
 
 
@@ -110,7 +130,7 @@ def draw_azure(work, prompt, photo):
         raise RuntimeError("set AZURE_IMAGE_ENDPOINT, AZURE_IMAGE_KEY and AZURE_IMAGE_MODEL")
     boundary = "drawportrait"
     parts = []
-    for k, v in (("model", model), ("prompt", prompt), ("size", "1024x1024"), ("quality", "high"), ("n", "1")):
+    for k, v in (("model", model), ("prompt", prompt), ("size", "1536x1024"), ("quality", "high"), ("n", "1")):
         parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode())
     for f in ["ref.png"] + (["photo.png"] if photo else []):
         parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="image[]"; filename="{f}"\r\n'
@@ -138,19 +158,21 @@ def draw(work, prompt, backend, photo):
         draw_azure(work, prompt, photo)
 
 
-def cut(sheet_path, dst):
-    """Image models keep the 5-column grid but stop the rows where the white
-    cells start; frames are square crops centred in each grid slot."""
+def cut(sheet_path, dst, layout="30"):
+    """Image models keep the grid; its extent is where the dark background
+    ends (older 19-cell sheets have white empty cells at the end). Frames are
+    square crops centred in each grid slot."""
     im = Image.open(sheet_path).convert("RGB")
     a = np.asarray(im).astype(int)
     dark = a.mean(axis=2) <= 200
     margin = im.width // 20
     bottom = np.where(dark[:, margin])[0].max() + 1
     right = np.where(dark[im.height // 10, :])[0].max() + 1
-    cw, ch = right / 5, bottom / 4
+    frames, cols, rows = LAYOUTS[layout]
+    cw, ch = right / cols, bottom / rows
     side = int(min(cw, ch) * 0.97)
-    for i, f in enumerate(FRAMES):
-        cx, cy = (i % 5 + 0.5) * cw, (i // 5 + 0.5) * ch
+    for i, f in enumerate(frames):
+        cx, cy = (i % cols + 0.5) * cw, (i // cols + 0.5) * ch
         left, top = round(cx - side / 2), round(cy - side / 2)
         os.makedirs(os.path.dirname(os.path.join(dst, f)), exist_ok=True)
         im.crop((left, top, left + side, top + side)).resize((128, 128), Image.LANCZOS).save(os.path.join(dst, f))
@@ -163,6 +185,8 @@ def main():
     p.add_argument("--dest", default=".pi/extensions/pi-emote")
     p.add_argument("--backend", choices=["auto", "codex", "azure"], default="auto")
     p.add_argument("--sheet", help="cut and install a sheet you already made")
+    p.add_argument("--layout", choices=["30", "19"], default="30",
+                   help="cells on a --sheet: 30 (6 by 5, default) or 19 (older 5 by 4 sheets)")
     p.add_argument("--photo", help="photo of a person the character should look like")
     p.add_argument("--direction", default="",
                    help="extra art direction, e.g. how the character gestures")
@@ -204,7 +228,7 @@ def main():
             draw(work, prompt, a.backend, bool(a.photo))
         # Build the whole new set first, so a bad sheet leaves the old one.
         new = os.path.join(work, "set")
-        cut(sheet, new)
+        cut(sheet, new, a.layout if a.sheet else "30")
         shutil.copy(sheet, os.path.join(new, "sheet.png"))
         shutil.copy(os.path.join(ROOT, "emotes/default/emotes.json"), new)
         dst = os.path.join(emotes, a.name)
