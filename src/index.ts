@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { existsSync, readdirSync } from "node:fs";
 
 import type { EmoteState, ResolvedRenderer } from "./types.js";
+import { ALL_STATES } from "./emotes.js";
 import type { Renderer } from "./renderer.js";
 import { log, setDebug } from "./log.js";
 import { loadLayeredConfig } from "./config.js";
@@ -18,7 +19,7 @@ import { Animator } from "./animator.js";
 import { createWidgetFactory } from "./widget.js";
 import { resolveRenderer } from "./terminal.js";
 
-const IMAGE_STATES = ["hi", "idle", "think", "talk", "read", "write", "tool", "success", "failure", "compact"];
+const IMAGE_STATES = ALL_STATES;
 
 /** Check if a set directory contains any image frames (PNG files in state subdirs). */
 function hasImageFrames(setDir: string): boolean {
@@ -37,8 +38,10 @@ function toolNameToState(toolName: string): EmoteState {
     case "read": return "read";
     case "write":
     case "edit": return "write";
-    default: return "tool";
+    case "bash": return "bash";
   }
+  if (/search|web|fetch|browse|scrape|crawl/i.test(toolName)) return "search";
+  return "tool";
 }
 
 function createRendererFromResolved(resolved: ResolvedRenderer, size: number): Renderer {
@@ -238,8 +241,33 @@ export default function (pi: ExtensionAPI) {
     animator.onTalkToken(text);
   });
 
-  pi.on("agent_end", async () => {
+  pi.on("agent_start", async () => {
     if (!widgetActive) return;
+    animator.transitionTo("heard");
+  });
+
+  pi.on("ui_prompt_start", async () => {
+    if (!widgetActive) return;
+    animator.transitionTo("wait");
+  });
+
+  pi.on("ui_prompt_end", async () => {
+    if (!widgetActive) return;
+    if (animator.currentState === "wait") animator.transitionTo("idle");
+  });
+
+  pi.on("agent_end", async (event) => {
+    if (!widgetActive) return;
+    // The last assistant message says whether you pressed Esc or the model failed.
+    const last = [...(event.messages ?? [])].reverse().find((m: any) => m?.role === "assistant") as any;
+    if (last?.stopReason === "aborted") {
+      animator.transitionTo("interrupted");
+      return;
+    }
+    if (last?.stopReason === "error") {
+      animator.transitionTo("error");
+      return;
+    }
     if (animator.currentState === "talk") {
       animator.endTalk();
     } else if (animator.currentState !== "idle" && animator.currentState !== "hi" && animator.currentState !== "compact") {
@@ -254,12 +282,8 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("tool_execution_end", async (event) => {
     if (!widgetActive) return;
-    if (event.toolName === "bash" && event.isError) {
-      animator.setHoldNextState("read");
-      animator.transitionTo("failure");
-    } else {
-      animator.transitionTo("read");
-    }
+    animator.setHoldNextState("read");
+    animator.transitionTo(event.isError ? "failure" : "success");
   });
 
   pi.on("session_before_compact", async () => {

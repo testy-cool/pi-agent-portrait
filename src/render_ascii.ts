@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import type { TUI } from "@earendil-works/pi-tui";
 import type { EmoteState, EmotesConfig } from "./types.js";
+import { ALL_STATES } from "./emotes.js";
 import type { Renderer, RenderedFrame } from "./renderer.js";
 import { log } from "./log.js";
 
@@ -246,7 +247,7 @@ export class AsciiRenderer implements Renderer {
     const parsed = parseSimpleYaml(yamlText);
     this.frames.clear();
 
-    const states: EmoteState[] = ["hi", "idle", "think", "talk", "read", "write", "tool", "success", "failure", "compact"];
+    const states = ALL_STATES;
 
     for (const state of states) {
       const value = parsed[state];
@@ -360,6 +361,10 @@ export class AsciiRenderer implements Renderer {
     if (!frameSet || frameSet.names.length === 0) return false;
     const name = frameSet.names[index % frameSet.names.length]!;
     return this.show(frameSet.named.get(name)!);
+  }
+
+  hasFrames(state: EmoteState): boolean {
+    return this.frames.has(state);
   }
 
   getCycleFrameCount(state: EmoteState): number {

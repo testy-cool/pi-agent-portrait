@@ -147,6 +147,10 @@ export abstract class BaseImageRenderer implements Renderer {
     return this.show(b64);
   }
 
+  hasFrames(state: EmoteState): boolean {
+    return (this.frameMap.get(state)?.files.length ?? 0) > 0;
+  }
+
   getCycleFrameCount(state: EmoteState): number {
     return this.frameMap.get(state)?.files.length ?? 0;
   }

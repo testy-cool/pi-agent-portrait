@@ -1,4 +1,6 @@
-export type EmoteState = "hi" | "idle" | "think" | "talk" | "read" | "write" | "tool" | "success" | "failure" | "compact";
+export type EmoteState =
+  | "hi" | "idle" | "think" | "talk" | "read" | "write" | "tool" | "success" | "failure" | "compact"
+  | "sleep" | "wait" | "interrupted" | "search" | "bash" | "error" | "heard";
 
 export type ThemeColor =
   | "accent" | "border" | "borderAccent" | "borderMuted"
@@ -38,7 +40,9 @@ export interface Config {
   size: number;
   readingSpeed: number;
   hideBelow: number;
-  holdDuration: { hi: number; success: number; failure: number };
+  holdDuration: { hi: number; success: number; failure: number; interrupted: number; error: number; heard: number };
+  /** Idle time before the portrait falls asleep, in ms; 0 never sleeps. */
+  sleepAfterMs: number;
   blinkInterval: [number, number];
   talkTickMs: number;
   cycleMs: number;

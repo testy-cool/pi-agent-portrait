@@ -1,5 +1,6 @@
 import type { TUI } from "@earendil-works/pi-tui";
 import type { EmoteState, Config, EmotesConfig } from "./types.js";
+import { FALLBACK_STATE } from "./emotes.js";
 import type { Renderer, RenderedFrame } from "./renderer.js";
 import { log } from "./log.js";
 
@@ -26,6 +27,7 @@ export class Animator {
   private talkTimer: ReturnType<typeof setInterval> | null = null;
   private cycleTimer: ReturnType<typeof setInterval> | null = null;
   private thinkTimer: ReturnType<typeof setTimeout> | null = null;
+  private sleepTimer: ReturnType<typeof setTimeout> | null = null;
   private talkGapTimer: ReturnType<typeof setTimeout> | null = null;
   private talkDurationTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -90,6 +92,7 @@ export class Animator {
     if (this.talkGapTimer) { clearTimeout(this.talkGapTimer); this.talkGapTimer = null; }
     if (this.talkDurationTimer) { clearTimeout(this.talkDurationTimer); this.talkDurationTimer = null; }
     if (this.thinkTimer) { clearTimeout(this.thinkTimer); this.thinkTimer = null; }
+    if (this.sleepTimer) { clearTimeout(this.sleepTimer); this.sleepTimer = null; }
   }
 
   private clearStateTimers() {
@@ -99,11 +102,17 @@ export class Animator {
     if (this.talkGapTimer) { clearTimeout(this.talkGapTimer); this.talkGapTimer = null; }
     if (this.talkDurationTimer) { clearTimeout(this.talkDurationTimer); this.talkDurationTimer = null; }
     if (this.thinkTimer) { clearTimeout(this.thinkTimer); this.thinkTimer = null; }
+    if (this.sleepTimer) { clearTimeout(this.sleepTimer); this.sleepTimer = null; }
   }
 
   // --- State transitions ---
 
   transitionTo(state: EmoteState) {
+    // Sets drawn before the newer states existed show the closest older one.
+    while (!this.renderer.hasFrames(state) && FALLBACK_STATE[state]) {
+      state = FALLBACK_STATE[state]!;
+    }
+    log(`transition: ${this.currentState} -> ${state}`);
     this.clearStateTimers();
     if (this.currentState === "idle" && this.blinkTimer) {
       clearTimeout(this.blinkTimer);
@@ -118,7 +127,14 @@ export class Animator {
       case "talk": this.enterTalk(); break;
       case "read":
       case "write":
-      case "tool": this.enterCycle(state); break;
+      case "tool":
+      case "search":
+      case "bash":
+      case "wait":
+      case "sleep": this.enterCycle(state); break;
+      case "interrupted": this.enterHold(state, this.config.holdDuration.interrupted); break;
+      case "error": this.enterHold(state, this.config.holdDuration.error); break;
+      case "heard": this.enterHold(state, this.config.holdDuration.heard); break;
       case "success": this.enterHold(state, this.config.holdDuration.success, this.holdNextState); this.holdNextState = "idle"; break;
       case "failure": this.enterHold(state, this.config.holdDuration.failure, this.holdNextState); this.holdNextState = "idle"; break;
       case "compact": this.enterCompact(); break;
@@ -134,6 +150,11 @@ export class Animator {
     const defaultFile = this.emotesConfig.idle?.default ?? "idle.png";
     this.renderer.showFrame("idle", defaultFile);
     this.scheduleBlink();
+    if (this.config.sleepAfterMs > 0) {
+      this.sleepTimer = setTimeout(() => {
+        if (this.currentState === "idle") this.transitionTo("sleep");
+      }, this.config.sleepAfterMs);
+    }
   }
 
   private scheduleBlink() {

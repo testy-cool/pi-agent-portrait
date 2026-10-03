@@ -46,6 +46,9 @@ export interface Renderer {
   /** Show a cycling frame for a state (read/write/tool). */
   showCycleFrame(state: EmoteState, index: number): boolean;
 
+  /** Whether the loaded set has any frames for a state. */
+  hasFrames(state: EmoteState): boolean;
+
   /** Get number of cycle frames for a state. */
   getCycleFrameCount(state: EmoteState): number;
 
