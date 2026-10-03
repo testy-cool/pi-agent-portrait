@@ -165,7 +165,9 @@ export default function (pi: ExtensionAPI) {
     const kept = (Array.isArray(project.emotes) ? project.emotes : []).filter(
       (e: any) => !((e.model ?? "*") === "*" && (e["thinking-level"] ?? "*") === "*"),
     );
-    project.emotes = [...kept, { model: "*", "emote-set": setName }];
+    // First in the project's list: it beats extension and user mappings,
+    // and the project's own model-specific mappings after it still win.
+    project.emotes = [{ model: "*", "emote-set": setName }, ...kept];
     mkdirSync(dirname(configPath), { recursive: true });
     writeFileSync(configPath, JSON.stringify(project, null, 2) + "\n");
 
@@ -175,7 +177,7 @@ export default function (pi: ExtensionAPI) {
     switchEmoteSet(ctx.model?.id ?? "", pi.getThinkingLevel());
     if (currentEmoteSet !== setName) {
       ctx.ui.notify(`[pi-agent-portrait] saved ${setName}, but a mapping for this model or thinking level shows ${currentEmoteSet}.`, "warning");
-    } else if (before !== setName) {
+    } else if (before !== setName && animator.currentState === "idle") {
       animator.transitionTo("hi");
     }
   }
@@ -316,14 +318,26 @@ export default function (pi: ExtensionAPI) {
     animator.transitionTo("heard");
   });
 
+  // A question can open while a tool runs (or for /portrait itself); when it
+  // closes, go back to that activity instead of idle.
+  let stateBeforeWait: EmoteState = "idle";
+  let waitShownAs: EmoteState | null = null; // "wait", or "idle" for sets without wait frames
+  const RESUMABLE: EmoteState[] = ["think", "talk", "read", "write", "tool", "search", "bash", "compact"];
+
   pi.on("ui_prompt_start", async () => {
     if (!widgetActive) return;
+    if (waitShownAs === null) {
+      stateBeforeWait = RESUMABLE.includes(animator.currentState) ? animator.currentState : "idle";
+    }
     animator.transitionTo("wait");
+    waitShownAs = animator.currentState;
   });
 
   pi.on("ui_prompt_end", async () => {
     if (!widgetActive) return;
-    if (animator.currentState === "wait") animator.transitionTo("idle");
+    // Only resume if nothing else changed the state while the prompt was open.
+    if (waitShownAs !== null && animator.currentState === waitShownAs) animator.transitionTo(stateBeforeWait);
+    waitShownAs = null;
   });
 
   pi.on("agent_end", async (event) => {
