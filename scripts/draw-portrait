@@ -9,6 +9,7 @@ usage:
   draw-portrait --name NAME --role "what the agent does" [--dest DIR]
                 [--backend auto|codex|azure]
   draw-portrait --name NAME --role "..." --photo face.jpg   (look like a person)
+                [--photo-style]   (draw in the photo's style, not the default set's)
   draw-portrait --name NAME --sheet my-sheet.png [--dest DIR]
   draw-portrait --print-prompt --name NAME --role "..."   (for ChatGPT etc.)
   draw-portrait --print-reference out.png                 (the sheet to attach)
@@ -66,6 +67,10 @@ No text, letters, numbers or logos anywhere."""
 PHOTO = """
 
 The second attached image is a photo of a real person. Draw the character as a pixel-art likeness of that person: same hair colour and style, face shape, eye colour, and facial hair or none. Match their apparent age: an adult must look like an adult, not a child or teenager. Take only the poses, framing and pixel style from the reference sheet, not its face proportions: its large eyes and round face belong to that character only. For an adult draw smaller, narrower eyes, a longer face, visible cheekbones, a defined jaw and chin, an adult nose, and an adult neck and shoulders. Keep the eye colour the same in every cell, including those lit by a screen. Keep it friendly and flattering."""
+
+PHOTO_STYLE = """
+
+Art style: copy the style of the second image, not the reference sheet's. Match its realistic proportions, pixel size, shading and colours, so every cell looks like that image with a different pose and expression. From the reference sheet take only the grid, the order of poses, the framing and the dark navy background."""
 
 CODEX_ASK = """Use your image generation tool. Pass the attached images to it as reference images, not just as context: ref.png is the pose sheet{photo_note}.
 
@@ -156,6 +161,8 @@ def main():
     p.add_argument("--backend", choices=["auto", "codex", "azure"], default="auto")
     p.add_argument("--sheet", help="cut and install a sheet you already made")
     p.add_argument("--photo", help="photo of a person the character should look like")
+    p.add_argument("--photo-style", action="store_true",
+                   help="draw in the photo's realistic style instead of the default set's")
     p.add_argument("--print-prompt", action="store_true")
     p.add_argument("--print-reference", metavar="PNG")
     a = p.parse_args()
@@ -165,6 +172,10 @@ def main():
     if not a.name or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", a.name):
         sys.exit("--name is needed: letters, digits, . _ - only")
     prompt = PROMPT.format(name=a.name, role=a.role or "a helpful assistant") + (PHOTO if a.photo else "")
+    if a.photo_style:
+        if not a.photo:
+            sys.exit("--photo-style needs --photo")
+        prompt += PHOTO_STYLE
     if a.print_prompt:
         return print(prompt)
 

@@ -48,7 +48,12 @@ path/to/pi-agent-portrait/scripts/draw-portrait --name cipher --role "a research
 
 # a likeness of a real person, from a photo
 draw-portrait --name sam --role "my coding buddy" --photo sam.jpg
+
+# the same, drawn in the photo's realistic style instead of the default set's
+draw-portrait --name sam --role "my coding buddy" --photo sam.jpg --photo-style
 ```
+
+For the most faithful likeness, first ask an image tool for one pixel-art portrait of the person from their photo, then pass that portrait as `--photo` with `--photo-style`. The default set's anime look otherwise makes adults look younger.
 
 It writes the set to `.pi/extensions/pi-emote/emotes/<name>/` and selects it in `.pi/extensions/pi-emote/config.json`. Drawing takes about two minutes.
 
