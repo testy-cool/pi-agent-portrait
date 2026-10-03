@@ -21,7 +21,7 @@ pi-emote uses layered configuration with deep merge. Higher-priority layers over
   "enabled": true,
   "debug": false,
   "size": 8,
-  "readingSpeed": 4,
+  "readingSpeed": 1000,
   "hideBelow": 80,
   "holdDuration": {
     "hi": 2000,
