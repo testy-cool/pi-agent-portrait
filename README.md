@@ -27,9 +27,9 @@ Based on [pi-emote](https://github.com/cgxeiji/pi-emote) by [@cgxeiji](https://g
 pi install git:github.com/testy-cool/pi-agent-portrait
 ```
 
-Start pi and the `default` character appears next to the model and token usage:
+Start pi and the `default` character appears next to the model and token usage. Here `nova` fixes a bug, then `/portrait forge` swaps her for `forge`:
 
-![The portrait in a pi session](pi-emote-demo.gif)
+![nova fixing a bug in pi, then /portrait forge](docs/demo.gif)
 
 It draws real images in Kitty, Ghostty, iTerm2 and WezTerm, also inside tmux (see [Multiplexers](#multiplexers)). Other terminals get an ASCII face.
 
