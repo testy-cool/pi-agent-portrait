@@ -1,36 +1,25 @@
-# pi-agent-portrait
+# pi-agent-portrait 🖼️ Your agent, with a face
 
-An animated pixel-art portrait of your agent that lives in the corner of your pi TUI session, like a unit portrait in a strategy game. Each agent can have its own character, drawn for it by an image model.
+> An animated pixel-art portrait in the corner of your pi session. It waves hello, thinks, reads, types, winces when a command fails and falls asleep when you walk away. The unit portrait from StarCraft, for your coding agent.
 
-Based on [pi-emote](https://github.com/cgxeiji/pi-emote) by [@cgxeiji](https://github.com/cgxeiji), who built the widget, the renderers and the original sets. This fork adds the portrait drawing script, the `cipher` set, and stops the mouth moving once a reply has finished.
+![Seven characters drawn with draw-portrait](docs/gallery.png)
 
-The portrait reacts to what the agent is doing — thinking, talking, reading, writing, using tools, etc.
+Every agent can have its own character. Describe its job, or hand over a photo, and `draw-portrait` has an image model draw all 30 frames on one sheet, cuts them up and installs them for that project. One command, about 90 seconds.
 
-![pi-emote demo](pi-emote-demo.gif)
+```bash
+draw-portrait --name forge --role "a deploy agent" \
+  --direction "a grizzled dwarf blacksmith with a braided red beard"
+```
 
-Supports Kitty, iTerm2, and ASCII rendering.
+Based on [pi-emote](https://github.com/cgxeiji/pi-emote) by [@cgxeiji](https://github.com/cgxeiji), who built the widget, the renderers and the original sets. This fork adds the drawing script, eleven more states, random takes and the example characters.
 
-## Gallery
+## Why
 
-Community-contributed emote sets. [Submit yours via PR!](#custom-emotes)
-
-### Image Sets
-
-| Avatar | Name | Contributor |
-|--------|------|-------------|
-| <img src="emotes/default/hi/hi1.png" width="64"> | `default` | [@cgxeiji](https://github.com/cgxeiji) |
-| <img src="emotes/aza_choi/hi/hi_1.png" width="64"> | `aza_choi` | [@shennguyenrs](https://github.com/shennguyenrs) |
-| <img src="emotes/aza_choi_nobg/hi/hi_1.png" width="64"> | `aza_choi_nobg` | [@shennguyenrs](https://github.com/shennguyenrs) |
-| <img src="emotes/red/hi/hi1.png" width="64"> | `red` | [@cgxeiji](https://github.com/cgxeiji) |
-| <img src="emotes/cipher/hi/hi1.png" width="64"> | `cipher` | [@testy-cool](https://github.com/testy-cool), drawn with `scripts/draw-portrait` |
-
-### ASCII Sets
-
-| Avatar | Name | Contributor |
-|--------|------|-------------|
-| `(^ ◡ ^)/` | `ascii` | [@cgxeiji](https://github.com/cgxeiji) |
-| `ʕ•̫͡•ʔ` | `ascii-bear` | [@LCorleone](https://github.com/LCorleone) |
-| <pre>.------.<br>\|  ^o^ \|<br>'--++--'<br>===++===</pre> | `ascii-bot` | [@cgxeiji](https://github.com/cgxeiji) |
+- **See what the agent is doing without reading.** A magnifying glass means it is searching the web, a green terminal means a command is running, a hand on the forehead means something failed.
+- **Tell agents apart at a glance.** Five panes, five faces.
+- **Notice when it needs you.** It checks its watch when pi asks you a question and falls asleep after three idle minutes.
+- **It does not loop the same gestures forever.** Draw a second take and each state picks one at random.
+- **Old sets keep working.** A state a set has no frames for shows the closest one it has.
 
 ## Install
 
@@ -38,39 +27,114 @@ Community-contributed emote sets. [Submit yours via PR!](#custom-emotes)
 pi install git:github.com/testy-cool/pi-agent-portrait
 ```
 
-## Draw a portrait for your agent
+Start pi and the `default` character appears next to the model and token usage:
 
-`scripts/draw-portrait` sends the `default` set to an image model as a reference sheet, asks for the same 19 poses drawn as a new character, cuts the result into frames, and installs it for the project you run it in. It needs Python 3 with Pillow and NumPy.
+![The portrait in a pi session](pi-emote-demo.gif)
+
+ It draws real images in Kitty, Ghostty, iTerm2 and WezTerm, also inside tmux (see [Multiplexers](#multiplexers)). Other terminals get an ASCII face.
+
+## Quick start: draw your own agent
+
+From the project folder:
 
 ```bash
-# from your project folder; uses the Codex CLI if installed, else Azure
-path/to/pi-agent-portrait/scripts/draw-portrait --name cipher --role "a research agent"
+~/.pi/agent/git/github.com/testy-cool/pi-agent-portrait/scripts/draw-portrait \
+  --name forge --role "a deploy agent"
+pi
+```
 
+It writes the set to `.pi/extensions/pi-emote/emotes/forge/` and selects it in that folder's `.pi/extensions/pi-emote/config.json`, so each project can have a different face. It needs Python 3 with Pillow and NumPy, plus one image model:
+
+- **Codex CLI** (`--backend codex`, picked automatically when `codex` is installed): its built-in image tool, on your ChatGPT login.
+- **Azure OpenAI** (`--backend azure`): set `AZURE_IMAGE_ENDPOINT` to the full `.../openai/v1/images/edits` URL, plus `AZURE_IMAGE_KEY` and `AZURE_IMAGE_MODEL` (tested with `gpt-image-2` and `gpt-image-2.5`).
+
+## What it reacts to
+
+<img src="docs/states.gif" width="220" align="right" alt="nova cycling through her states">
+
+| State | When |
+|-------|------|
+| hi | Session start |
+| idle | Nothing happening (blinks now and then) |
+| heard | You sent a message |
+| think | Reasoning tokens streaming |
+| talk | Reply streaming |
+| read | `read` tool, or reading tool output |
+| write | `write` or `edit` tool |
+| bash | `bash` tool |
+| search | A tool whose name mentions search, web, fetch, browse, scrape or crawl |
+| tool | Any other tool |
+| success | A tool call worked |
+| failure | A tool call failed |
+| wait | pi is waiting on a question for you |
+| interrupted | You pressed Esc during a reply |
+| error | The model request failed |
+| compact | Context compaction |
+| sleep | Idle for `sleepAfterMs`, 3 minutes by default; 0 turns it off |
+
+A set without frames for one of the newer states shows the closest older one: heard, wait and sleep show idle; bash and search show tool; interrupted and error show failure.
+
+## Examples
+
+Every character below except `default`, `red` and `aza_choi` was drawn with `draw-portrait`, in one run each. The `--direction` text is the whole art brief.
+
+| | Name | Role | Direction |
+|-|------|------|-----------|
+| <img src="emotes/forge/hi/hi1.png" width="64"> | `forge` | a deploy and ops agent | a grizzled dwarf blacksmith with a braided red beard, leather apron and soot on his cheeks |
+| <img src="emotes/quill/hi/hi1.png" width="64"> | `quill` | a research agent that reads papers | an elderly owl librarian in a tweed waistcoat with half-moon spectacles |
+| <img src="emotes/nova/hi/hi1.png" width="64"> | `nova` | a release manager | a space pilot in her thirties with a short silver undercut, orange flight suit and a headset |
+| <img src="emotes/sprocket/hi/hi1.png" width="64"> | `sprocket` | a test runner | a small round brass robot with one big glowing teal eye; emotion through the eye and antenna |
+| <img src="emotes/moss/hi/hi1.png" width="64"> | `moss` | a data cleaning agent | a calm forest witch in her forties with a green hood, freckles and moss in her hair |
+| <img src="emotes/oana/hi/hi1.png" width="64"> | `oana` | brand strategy and art direction | drawn from a photo with `--photo-style`, plus a second take with `--variant 2` |
+| <img src="emotes/cipher/hi/hi1.png" width="64"> | `cipher` | a research agent | a handsome, modular cyborg (an older 19-frame set) |
+
+Try one in any project:
+
+```json
+{ "emotes": [{ "model": "*", "emote-set": "quill" }] }
+```
+
+in `.pi/extensions/pi-emote/config.json`.
+
+### Community sets
+
+| Avatar | Name | Contributor |
+|--------|------|-------------|
+| <img src="emotes/default/hi/hi1.png" width="64"> | `default` | [@cgxeiji](https://github.com/cgxeiji) |
+| <img src="emotes/aza_choi/hi/hi_1.png" width="64"> | `aza_choi` | [@shennguyenrs](https://github.com/shennguyenrs) |
+| <img src="emotes/aza_choi_nobg/hi/hi_1.png" width="64"> | `aza_choi_nobg` | [@shennguyenrs](https://github.com/shennguyenrs) |
+| <img src="emotes/red/hi/hi1.png" width="64"> | `red` | [@cgxeiji](https://github.com/cgxeiji) |
+| `(^ ◡ ^)/` | `ascii` | [@cgxeiji](https://github.com/cgxeiji) |
+| `ʕ•̫͡•ʔ` | `ascii-bear` | [@LCorleone](https://github.com/LCorleone) |
+| <pre>.------.<br>\|  ^o^ \|<br>'--++--'<br>===++===</pre> | `ascii-bot` | [@cgxeiji](https://github.com/cgxeiji) |
+
+Sets are welcome by PR, see [Custom Emotes](#custom-emotes).
+
+## Drawing options
+
+```bash
 # a likeness of a real person, from a photo
 draw-portrait --name sam --role "my coding buddy" --photo sam.jpg
 
-# the same, drawn in the photo's realistic style instead of the default set's
+# the same, drawn in the photo's realistic style instead of the anime default
 draw-portrait --name sam --role "my coding buddy" --photo sam.jpg --photo-style
+
+# how the character moves, not only how it looks
+draw-portrait --name sam --role "my coding buddy" \
+  --direction "finger guns instead of a wave, a pencil behind his ear, one eyebrow cocked"
 ```
 
-Add `--direction "..."` for anything else, such as how the character moves: `--direction "weird and idiosyncratic: finger guns instead of a wave, a pencil behind his ear, one eyebrow cocked"`. Each cell keeps its meaning (wave, talk, think, read and so on), so the right frame still shows for each state.
+Each cell keeps its meaning (wave, talk, think, read and so on) whatever the direction says, so the right frame still shows for each state.
 
-For the most faithful likeness, first ask an image tool for one pixel-art portrait of the person from their photo, then pass that portrait as `--photo` with `--photo-style`. The default set's anime look otherwise makes adults look younger.
+For the most faithful likeness, first ask an image tool for one pixel-art portrait of the person from their photo, then pass that portrait as `--photo` with `--photo-style`. The default set's anime look otherwise makes adults look younger. Only draw people who are fine with it.
 
-It writes the set to `.pi/extensions/pi-emote/emotes/<name>/` and selects it in `.pi/extensions/pi-emote/config.json`. Drawing takes about two minutes.
+### More takes
 
-Image models it can use:
-
-- **Codex CLI** (`--backend codex`): its built-in image tool, on your ChatGPT login.
-- **Azure OpenAI** (`--backend azure`): set `AZURE_IMAGE_ENDPOINT` to the full `.../openai/v1/images/edits` URL, plus `AZURE_IMAGE_KEY` and `AZURE_IMAGE_MODEL` (tested with `gpt-image-2` and `gpt-image-2.5`).
-
-### Variants
-
-`draw-portrait --name <name> --variant 2` draws a second take on every frame of an existing set, with different poses for the same situations, and adds them as `<frame>_v2.png`. Each time a state starts, the portrait picks one variant at random and keeps it until the state ends, so poses from different takes never mix. Use 3, 4 and so on for more.
+`draw-portrait --name <name> --variant 2` draws the same character again in 30 different poses (a salute instead of a wave, binoculars instead of a magnifying glass) and adds them as `<frame>_v2.png`. Take 1's sheet is the character reference, so face, clothes and details stay the same. Each time a state starts the portrait picks one take at random and keeps it until the state ends. Use 3, 4 and so on for more.
 
 ### Templates
 
-Once one character has all 30 frames, its set can be the pose reference for the next, so the model sees every pose drawn instead of 11 empty cells: `draw-portrait --template path/to/emotes/<name> --name ...`. `--print-guide path/to/emotes/<name> guide.png` saves that set with each frame's name under it.
+A finished 30-frame set can be the pose reference for the next character, so the model sees every pose drawn instead of 11 empty cells: `draw-portrait --template path/to/emotes/<name> --name ...`. `--print-guide path/to/emotes/<name> guide.png` saves that set with each frame's name under it.
 
 ### Without the script
 
@@ -80,31 +144,7 @@ Use any image tool that accepts a reference image, such as ChatGPT:
 2. Print the prompt: `draw-portrait --print-prompt --name cipher --role "a research agent"`.
 3. Give the tool both, save the image it makes, and install it: `draw-portrait --name cipher --sheet sheet.png`.
 
-The prompt asks for the 19 poses on a 5 by 5 grid in a fixed order (idle, blink, two waves, four talking mouths, two thinking, two reading, two typing, two on a phone, two failures, one tidying up), so the script knows where each frame is.
-
-## States
-
-| State | Trigger |
-|-------|---------|
-| hi | Session start |
-| idle | Nothing happening (blinks occasionally) |
-| think | Reasoning tokens streaming |
-| talk | Text response streaming |
-| read | `read` tool / reading tool output |
-| write | `write` or `edit` tool |
-| tool | Any other tool |
-| bash | `bash` tool (falls back to tool) |
-| search | Tools whose name mentions search, web, fetch, browse, scrape or crawl (falls back to tool) |
-| success | Successful tool execution |
-| failure | Failed tool execution |
-| compact | Context compaction |
-| heard | You sent a message (falls back to idle) |
-| wait | Pi is waiting on a question for you (falls back to idle) |
-| interrupted | You pressed Esc during a reply (falls back to failure) |
-| error | The model request failed (falls back to failure) |
-| sleep | Idle for `sleepAfterMs`, 3 minutes by default; 0 turns it off (falls back to idle) |
-
-Sets without frames for a newer state show the state in brackets, so older sets keep working. `scripts/draw-portrait` draws all of them: a 6 by 5 sheet of 30 frames. Pass `--layout 19` to install an older 5 by 4 sheet.
+The prompt asks for 30 poses on a 6 by 5 grid in a fixed order, so the script knows where each frame is. `--layout 19` installs an older 5 by 4 sheet of 19.
 
 ## Config
 
@@ -253,7 +293,8 @@ emotes/my-avatar/
 ├── read/*.png
 ├── write/*.png
 ├── tool/*.png
-└── ...          # hi, success, failure, compact
+└── ...          # hi, success, failure, compact, heard, wait, bash, search,
+                 # interrupted, error, sleep
 ```
 
 Not all states are required. Missing ones just won't animate.
