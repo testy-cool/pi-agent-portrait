@@ -34,7 +34,7 @@
     "extensions": [
       "./src/index.ts"
     ],
-    "image": "https://raw.githubusercontent.com/cgxeiji/pi-emote/main/pi-emote-demo.gif"
+    "image": "https://raw.githubusercontent.com/testy-cool/pi-agent-portrait/main/docs/demo.gif"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
