@@ -12,6 +12,8 @@ usage:
   draw-portrait --name NAME --role "..." --photo face.jpg   (look like a person)
                 [--photo-style]   (draw in the photo's style, not the default set's)
                 [--direction "..."]  (extra art direction, e.g. gestures)
+  draw-portrait --name NAME --variant 2   (a second drawing of every frame,
+                picked at random each time a state starts)
   draw-portrait --name NAME --sheet my-sheet.png [--dest DIR]
   draw-portrait --print-prompt --name NAME --role "..."   (for ChatGPT etc.)
   draw-portrait --print-reference out.png                 (the sheet to attach)
@@ -50,7 +52,11 @@ The new character is {name}, an assistant whose job is: {role}
 Design a distinct, appealing character that suits that job, with a clear look (hair, clothing, one accessory) that stays identical in every cell. Do not copy the original character's face, hair, hair clip or clothes.
 
 Cells, in order:
-1 idle, relaxed neutral face, eyes open
+{cells}
+
+No text, letters, numbers or logos anywhere."""
+
+CELLS = """1 idle, relaxed neutral face, eyes open
 2 same as 1 with eyes closed (blink)
 3 smiling, waving hello with one hand
 4 smiling wider, hand waving in a different position
@@ -79,9 +85,39 @@ Cells, in order:
 27 searching the web: peering through a magnifying glass
 28 running a command: typing on a small retro terminal, green screen glow on the face
 29 connection error: frowning at a broken cable and a burst of static
-30 heard you: attentive, small nod, hand cupped to the ear
+30 heard you: attentive, small nod, hand cupped to the ear"""
 
-No text, letters, numbers or logos anywhere."""
+# Different poses for the same 30 situations, used to draw variants.
+ALT_CELLS = """1 idle, chin resting on one hand, relaxed
+2 same as 1 with eyes closed (blink)
+3 hello: a casual two-finger salute from the brow
+4 hello: a big wave with both hands
+5 talking with an open palm, explaining, mouth closed
+6 talking with an open palm, mouth slightly open
+7 talking, counting on their fingers, mouth half open
+8 talking excitedly, both hands up, mouth wide open
+9 thinking: looking sideways, one finger tapping the lips, small thought bubble
+10 thinking hard: both hands on the temples, eyes squeezed shut
+11 reading a tablet held up close
+12 reading a sheet of paper, eyebrows raised
+13 writing in a notebook with a pen
+14 writing, pen resting on the lips, looking at the page
+15 working on a small gadget with a screwdriver
+16 working on the gadget, holding it up to inspect it
+17 something failed: both hands on the cheeks, shocked
+18 something failed: forehead down on folded arms
+19 tidying up: stacking papers neatly
+20 it worked: a thumbs up and a grin
+21 it worked: both arms raised, cheering
+22 asleep: head tipped back, mouth open
+23 asleep: wrapped in a small blanket
+24 waiting for an answer: drumming the fingers on the chin
+25 waiting for an answer: arms crossed, one eyebrow raised
+26 interrupted: jolted, a coffee cup splashing
+27 searching the web: looking through binoculars
+28 running a command: typing fast on a glowing keyboard, focused
+29 connection error: holding up an unplugged plug, sighing
+30 heard you: leaning in, eyebrows raised, smiling"""
 
 PHOTO = """
 
@@ -206,6 +242,9 @@ def main():
     p.add_argument("--layout", choices=["30", "19"], default="30",
                    help="cells on a --sheet: 30 (6 by 5, default) or 19 (older 5 by 4 sheets)")
     p.add_argument("--photo", help="photo of a person the character should look like")
+    p.add_argument("--variant", type=int, metavar="N",
+                   help="add a second (third, ...) drawing of every frame to an existing set,"
+                        " as file_vN.png; the set itself is the reference, so the character stays the same")
     p.add_argument("--direction", default="",
                    help="extra art direction, e.g. how the character gestures")
     p.add_argument("--photo-style", action="store_true",
@@ -224,7 +263,8 @@ def main():
         return reference_sheet(a.print_reference, a.template)
     if not a.name or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", a.name):
         sys.exit("--name is needed: letters, digits, . _ - only")
-    prompt = PROMPT.format(name=a.name, role=a.role or "a helpful assistant") + (PHOTO if a.photo else "")
+    prompt = PROMPT.format(name=a.name, role=a.role or "a helpful assistant",
+                           cells=ALT_CELLS if a.variant else CELLS) + (PHOTO if a.photo else "")
     if a.photo_style:
         if not a.photo:
             sys.exit("--photo-style needs --photo")
@@ -232,6 +272,23 @@ def main():
     if a.direction:
         prompt += ("\n\nExtra direction, which overrides the generic pose descriptions above while keeping"
                    " what each cell means (blink, wave, talk, think, read, type, phone, fail, tidy): " + a.direction)
+    existing = os.path.join(a.dest, "emotes", a.name)
+    if a.variant is not None:
+        if a.variant < 2:
+            sys.exit("--variant starts at 2; the first drawing is the set itself")
+        if not os.path.isdir(existing):
+            sys.exit(f"--variant needs an existing set at {existing}")
+        # The set's own idle frame shows the character; the reference sheet
+        # only gives the grid, so the model draws the new poses from text
+        # instead of copying the old ones.
+        a.photo = a.photo or os.path.join(existing, "idle/idle.png")
+        a.photo_style = True
+        prompt = PROMPT.format(name=a.name, role=a.role or "a helpful assistant", cells=ALT_CELLS) + PHOTO + PHOTO_STYLE
+        prompt += ("\n\nThe second image is this character as already drawn. Keep the same person, clothes,"
+                   " accessories, colours and art style exactly; only the poses are new. The reference sheet's"
+                   " poses do not apply: follow the cell list above.")
+        if a.direction:
+            prompt += "\n\nExtra direction: " + a.direction
     if a.print_prompt:
         return print(prompt)
 
@@ -248,7 +305,10 @@ def main():
         else:
             reference_sheet(os.path.join(work, "ref.png"), a.template)
             if a.photo:
-                Image.open(a.photo).convert("RGB").save(os.path.join(work, "photo.png"))
+                photo = Image.open(a.photo).convert("RGB")
+                if photo.width < 512:  # a 128px frame: enlarge so the model sees it clearly
+                    photo = photo.resize((512, 512 * photo.height // photo.width), Image.NEAREST)
+                photo.save(os.path.join(work, "photo.png"))
             draw(work, prompt, a.backend, bool(a.photo))
         # Build the whole new set first, so a bad sheet leaves the old one.
         new = os.path.join(work, "set")
@@ -256,9 +316,17 @@ def main():
         shutil.copy(sheet, os.path.join(new, "sheet.png"))
         shutil.copy(os.path.join(ROOT, "emotes/default/emotes.json"), new)
         dst = os.path.join(emotes, a.name)
-        if os.path.isdir(dst):
-            os.rename(dst, os.path.join(work, "old"))
-        os.rename(new, dst)
+        if a.variant is not None:
+            # Add the new drawing next to the existing files, as name_vN.png.
+            for f in FRAMES + NEW_FRAMES:
+                stem, ext = os.path.splitext(f)
+                os.makedirs(os.path.dirname(os.path.join(dst, f)), exist_ok=True)
+                shutil.copy(os.path.join(new, f), os.path.join(dst, f"{stem}_v{a.variant}{ext}"))
+            shutil.copy(sheet, os.path.join(dst, f"sheet_v{a.variant}.png"))
+        else:
+            if os.path.isdir(dst):
+                os.rename(dst, os.path.join(work, "old"))
+            os.rename(new, dst)
     finally:
         shutil.rmtree(work, ignore_errors=True)
     config_path = os.path.join(a.dest, "config.json")
