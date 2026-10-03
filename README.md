@@ -64,6 +64,10 @@ Image models it can use:
 - **Codex CLI** (`--backend codex`): its built-in image tool, on your ChatGPT login.
 - **Azure OpenAI** (`--backend azure`): set `AZURE_IMAGE_ENDPOINT` to the full `.../openai/v1/images/edits` URL, plus `AZURE_IMAGE_KEY` and `AZURE_IMAGE_MODEL` (tested with `gpt-image-2` and `gpt-image-2.5`).
 
+### Templates
+
+Once one character has all 30 frames, its set can be the pose reference for the next, so the model sees every pose drawn instead of 11 empty cells: `draw-portrait --template path/to/emotes/<name> --name ...`. `--print-guide path/to/emotes/<name> guide.png` saves that set with each frame's name under it.
+
 ### Without the script
 
 Use any image tool that accepts a reference image, such as ChatGPT:

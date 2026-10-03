@@ -44,7 +44,7 @@ NEW_FRAMES = ["success/success1.png", "success/success2.png", "sleep/sleep1.png"
 # Sheets made before the newer states were 5 by 4 with 19 cells.
 LAYOUTS = {"30": (FRAMES + NEW_FRAMES, 6, 5), "19": (FRAMES, 5, 4)}
 
-PROMPT = """The attached image is a pixel-art emote sheet on a 6 by 5 grid of 30 cells, read left to right, top to bottom. The first 19 cells show one character in 19 poses; the last 11 cells are empty. Make a new sheet with exactly the same 6 by 5 grid, all 30 cells filled: the same 19 poses in the first 19 cells, and the 11 new poses listed below in the last 11 cells. Use the same framing in every cell (head and shoulders, centred, same size), the same pixel-art style, and the same dark navy tiled background.
+PROMPT = """The attached image is a pixel-art emote sheet on a 6 by 5 grid of 30 cells, read left to right, top to bottom. It shows one character in the poses listed below; any empty cells are poses still to be drawn. Make a new sheet with exactly the same 6 by 5 grid, all 30 cells filled with the 30 poses below, in order. Use the same framing in every cell (head and shoulders, centred, same size), the same pixel-art style, and the same dark navy tiled background.
 
 The new character is {name}, an assistant whose job is: {role}
 Design a distinct, appealing character that suits that job, with a clear look (hair, clothing, one accessory) that stays identical in every cell. Do not copy the original character's face, hair, hair clip or clothes.
@@ -100,13 +100,14 @@ CODEX_ASK = """Use your image generation tool. Pass the attached images to it as
 Save the result in the current folder as sheet.png, landscape, with the same 6 by 5 cell layout as ref.png."""
 
 
-def reference_sheet(path):
-    """The 19 default frames in a 6 by 5 grid; the 11 newer cells are left
-    as plain background for the model to fill."""
+def reference_sheet(path, template=None):
+    """A 6 by 5 grid of reference poses. By default the 19 default frames,
+    with the 11 newer cells left as plain background for the model to fill;
+    with a template (a folder holding a full 30-frame set) every cell."""
     cell, size = 204, 1224
     sheet = Image.new("RGB", (size, 1020), (18, 20, 33))
-    for i, f in enumerate(FRAMES):
-        im = Image.open(os.path.join(ROOT, "emotes/default", f)).convert("RGBA")
+    for i, f in enumerate(FRAMES + NEW_FRAMES if template else FRAMES):
+        im = Image.open(os.path.join(template or os.path.join(ROOT, "emotes/default"), f)).convert("RGBA")
         im = im.resize((cell, cell), Image.NEAREST)
         bg = Image.new("RGBA", (cell, cell), (255, 255, 255, 255))
         bg.alpha_composite(im)
@@ -158,6 +159,23 @@ def draw(work, prompt, backend, photo):
         draw_azure(work, prompt, photo)
 
 
+def labelled_sheet(set_dir, path):
+    """The 30 frames with each state's file name under it, for people."""
+    from PIL import ImageDraw, ImageFont
+    cell, label = 256, 40
+    try:
+        font = ImageFont.truetype("DejaVuSans.ttf", 20)
+    except OSError:
+        font = ImageFont.load_default(size=20)
+    sheet = Image.new("RGB", (6 * cell, 5 * (cell + label)), (255, 255, 255))
+    draw = ImageDraw.Draw(sheet)
+    for i, f in enumerate(FRAMES + NEW_FRAMES):
+        x, y = (i % 6) * cell, (i // 6) * (cell + label)
+        sheet.paste(Image.open(os.path.join(set_dir, f)).convert("RGB").resize((cell, cell), Image.NEAREST), (x, y))
+        draw.text((x + 8, y + cell + 8), f"{i + 1}. {os.path.basename(f)[:-4]}", fill=(20, 20, 20), font=font)
+    sheet.save(path)
+
+
 def cut(sheet_path, dst, layout="30"):
     """Image models keep the grid; its extent is where the dark background
     ends (older 19-cell sheets have white empty cells at the end). Frames are
@@ -194,10 +212,16 @@ def main():
                    help="draw in the photo's realistic style instead of the default set's")
     p.add_argument("--print-prompt", action="store_true")
     p.add_argument("--print-reference", metavar="PNG")
+    p.add_argument("--template", metavar="SET_DIR",
+                   help="use a finished 30-frame set as the pose reference instead of the default set")
+    p.add_argument("--print-guide", nargs=2, metavar=("SET_DIR", "PNG"),
+                   help="save a labelled sheet of a 30-frame set, one state name per cell")
     a = p.parse_args()
 
+    if a.print_guide:
+        return labelled_sheet(*a.print_guide)
     if a.print_reference:
-        return reference_sheet(a.print_reference)
+        return reference_sheet(a.print_reference, a.template)
     if not a.name or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", a.name):
         sys.exit("--name is needed: letters, digits, . _ - only")
     prompt = PROMPT.format(name=a.name, role=a.role or "a helpful assistant") + (PHOTO if a.photo else "")
@@ -222,7 +246,7 @@ def main():
         if a.sheet:
             shutil.copy(a.sheet, sheet)
         else:
-            reference_sheet(os.path.join(work, "ref.png"))
+            reference_sheet(os.path.join(work, "ref.png"), a.template)
             if a.photo:
                 Image.open(a.photo).convert("RGB").save(os.path.join(work, "photo.png"))
             draw(work, prompt, a.backend, bool(a.photo))
