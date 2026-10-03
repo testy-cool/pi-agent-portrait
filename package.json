@@ -1,17 +1,17 @@
 {
-  "name": "pi-emote",
+  "name": "pi-agent-portrait",
   "version": "0.3.0",
-  "description": "Animated pixel-art emote widget for pi TUI",
-  "author": "CGx <31814150+cgxeiji@users.noreply.github.com>",
+  "description": "Animated pixel-art portrait of your pi agent, with a script that draws a new one for each agent",
+  "author": "testy-cool, based on pi-emote by CGx",
   "license": "MIT",
   "scripts": {
     "test": "node --test \"tests/*.test.ts\""
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cgxeiji/pi-emote.git"
+    "url": "git+https://github.com/testy-cool/pi-agent-portrait.git"
   },
-  "homepage": "https://github.com/cgxeiji/pi-emote#readme",
+  "homepage": "https://github.com/testy-cool/pi-agent-portrait#readme",
   "keywords": [
     "pi-package",
     "pi-extension",
@@ -23,6 +23,7 @@
   "files": [
     "src",
     "emotes",
+    "scripts",
     "!emotes/_test",
     "!emotes/_unused",
     "config.json",
@@ -30,7 +31,9 @@
     "LICENSE"
   ],
   "pi": {
-    "extensions": ["./src/index.ts"],
+    "extensions": [
+      "./src/index.ts"
+    ],
     "image": "https://raw.githubusercontent.com/cgxeiji/pi-emote/main/pi-emote-demo.gif"
   },
   "peerDependencies": {

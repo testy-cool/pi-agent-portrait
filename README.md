@@ -1,8 +1,10 @@
-# CGx's pi-emote
+# pi-agent-portrait
 
-> **Currently looking to expand the emotes gallery!** If you have an emote set you'd like to submit, please make a PR!
+An animated pixel-art portrait of your agent that lives in the corner of your pi TUI session, like a unit portrait in a strategy game. Each agent can have its own character, drawn for it by an image model.
 
-Animated pixel-art emote that lives in the top-right corner of your pi TUI session. Reacts to what the agent is doing — thinking, talking, reading, writing, using tools, etc.
+Based on [pi-emote](https://github.com/cgxeiji/pi-emote) by [@cgxeiji](https://github.com/cgxeiji), who built the widget, the renderers and the original sets. This fork adds the portrait drawing script, the `cipher` set, and stops the mouth moving once a reply has finished.
+
+The portrait reacts to what the agent is doing — thinking, talking, reading, writing, using tools, etc.
 
 ![pi-emote demo](pi-emote-demo.gif)
 
@@ -20,6 +22,7 @@ Community-contributed emote sets. [Submit yours via PR!](#custom-emotes)
 | <img src="emotes/aza_choi/hi/hi_1.png" width="64"> | `aza_choi` | [@shennguyenrs](https://github.com/shennguyenrs) |
 | <img src="emotes/aza_choi_nobg/hi/hi_1.png" width="64"> | `aza_choi_nobg` | [@shennguyenrs](https://github.com/shennguyenrs) |
 | <img src="emotes/red/hi/hi1.png" width="64"> | `red` | [@cgxeiji](https://github.com/cgxeiji) |
+| <img src="emotes/cipher/hi/hi1.png" width="64"> | `cipher` | [@testy-cool](https://github.com/testy-cool), drawn with `scripts/draw-portrait` |
 
 ### ASCII Sets
 
@@ -32,8 +35,37 @@ Community-contributed emote sets. [Submit yours via PR!](#custom-emotes)
 ## Install
 
 ```bash
-pi install git:github.com/cgxeiji/pi-emote
+pi install git:github.com/testy-cool/pi-agent-portrait
 ```
+
+## Draw a portrait for your agent
+
+`scripts/draw-portrait` sends the `default` set to an image model as a reference sheet, asks for the same 19 poses drawn as a new character, cuts the result into frames, and installs it for the project you run it in. It needs Python 3 with Pillow and NumPy.
+
+```bash
+# from your project folder; uses the Codex CLI if installed, else Azure
+path/to/pi-agent-portrait/scripts/draw-portrait --name cipher --role "a research agent"
+
+# a likeness of a real person, from a photo
+draw-portrait --name sam --role "my coding buddy" --photo sam.jpg
+```
+
+It writes the set to `.pi/extensions/pi-emote/emotes/<name>/` and selects it in `.pi/extensions/pi-emote/config.json`. Drawing takes about two minutes.
+
+Image models it can use:
+
+- **Codex CLI** (`--backend codex`): its built-in image tool, on your ChatGPT login.
+- **Azure OpenAI** (`--backend azure`): set `AZURE_IMAGE_ENDPOINT` to the full `.../openai/v1/images/edits` URL, plus `AZURE_IMAGE_KEY` and `AZURE_IMAGE_MODEL` (tested with `gpt-image-2` and `gpt-image-2.5`).
+
+### Without the script
+
+Use any image tool that accepts a reference image, such as ChatGPT:
+
+1. Save the reference sheet: `draw-portrait --print-reference ref.png`.
+2. Print the prompt: `draw-portrait --print-prompt --name cipher --role "a research agent"`.
+3. Give the tool both, save the image it makes, and install it: `draw-portrait --name cipher --sheet sheet.png`.
+
+The prompt asks for the 19 poses on a 5 by 5 grid in a fixed order (idle, blink, two waves, four talking mouths, two thinking, two reading, two typing, two on a phone, two failures, one tidying up), so the script knows where each frame is.
 
 ## States
 
