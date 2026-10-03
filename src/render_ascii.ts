@@ -363,6 +363,10 @@ export class AsciiRenderer implements Renderer {
     return this.show(frameSet.named.get(name)!);
   }
 
+  listFrames(_state: EmoteState): string[] {
+    return [];
+  }
+
   hasFrames(state: EmoteState): boolean {
     return this.frames.has(state);
   }

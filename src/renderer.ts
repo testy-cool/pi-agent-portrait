@@ -49,6 +49,9 @@ export interface Renderer {
   /** Whether the loaded set has any frames for a state. */
   hasFrames(state: EmoteState): boolean;
 
+  /** PNG file names for a state, sorted; empty for renderers without image files. */
+  listFrames(state: EmoteState): string[];
+
   /** Get number of cycle frames for a state. */
   getCycleFrameCount(state: EmoteState): number;
 

@@ -211,6 +211,14 @@ export class TmuxKittyUnicodeRenderer implements Renderer {
     return this.show(b64);
   }
 
+  listFrames(state: EmoteState): string[] {
+    return this.frameMap.get(state)?.files ?? [];
+  }
+
+  hasFrames(state: EmoteState): boolean {
+    return this.listFrames(state).length > 0;
+  }
+
   getCycleFrameCount(state: EmoteState): number {
     return this.frameMap.get(state)?.files.length ?? 0;
   }

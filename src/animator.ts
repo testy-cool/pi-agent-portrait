@@ -10,6 +10,21 @@ function randomInRange(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
 
+/** "read2_v3.png" -> "_v3"; files without a suffix are the base variant "". */
+function variantOf(file: string): string {
+  return /(_v\d+)?\.png$/.exec(file)?.[1] ?? "";
+}
+
+function weightedPick(weights: Record<string, number>): string {
+  const entries = Object.entries(weights);
+  let r = Math.random() * entries.reduce((sum, [, w]) => sum + w, 0);
+  for (const [name, w] of entries) {
+    r -= w;
+    if (r <= 0) return name;
+  }
+  return entries[entries.length - 1]![0];
+}
+
 // --- Animator ---
 
 export class Animator {
@@ -37,6 +52,11 @@ export class Animator {
 
   // Hold state
   private holdNextState: EmoteState = "idle";
+
+  // Variant chosen for the current state ("" or "_v2", "_v3", ...). Sets can
+  // hold several drawings of a state; one is picked each time the state
+  // starts and kept until it ends, so poses from different drawings never mix.
+  private variant = "";
 
   // Talk state
   private talkWordCount = 0;
@@ -113,6 +133,8 @@ export class Animator {
       state = FALLBACK_STATE[state]!;
     }
     log(`transition: ${this.currentState} -> ${state}`);
+    const variants = [...new Set(this.renderer.listFrames(state).map(variantOf))];
+    this.variant = variants.length ? variants[Math.floor(Math.random() * variants.length)]! : "";
     this.clearStateTimers();
     if (this.currentState === "idle" && this.blinkTimer) {
       clearTimeout(this.blinkTimer);
@@ -141,13 +163,40 @@ export class Animator {
     }
   }
 
+  /** The current variant's version of a frame, or the frame itself. */
+  private named(state: EmoteState, file: string): string {
+    const v = file.replace(/\.png$/, `${this.variant}.png`);
+    return this.renderer.listFrames(state).includes(v) ? v : file;
+  }
+
+  /** The current variant's frames for a looping state. */
+  private variantFrames(state: EmoteState): string[] {
+    const files = this.renderer.listFrames(state);
+    const mine = files.filter((f) => variantOf(f) === this.variant);
+    return mine.length ? mine : files;
+  }
+
+  private showTalk() {
+    const weights = this.emotesConfig.talk?.weights;
+    if (this.renderer.listFrames("talk").length && weights) {
+      if (this.renderer.showFrame("talk", this.named("talk", weightedPick(weights)))) return;
+    }
+    this.renderer.showTalkFrame(this.emotesConfig);
+  }
+
+  private showTalkClose() {
+    const close = this.variantFrames("talk").find((f) => f.includes("close"));
+    if (close && this.renderer.showFrame("talk", close)) return;
+    this.renderer.showTalkCloseFrame();
+  }
+
   private enterHi() {
     this.renderer.showRandomFrame("hi");
     this.holdTimer = setTimeout(() => this.transitionTo("idle"), this.config.holdDuration.hi);
   }
 
   enterIdle() {
-    const defaultFile = this.emotesConfig.idle?.default ?? "idle.png";
+    const defaultFile = this.named("idle", this.emotesConfig.idle?.default ?? "idle.png");
     this.renderer.showFrame("idle", defaultFile);
     this.scheduleBlink();
     if (this.config.sleepAfterMs > 0) {
@@ -167,7 +216,7 @@ export class Animator {
   }
 
   private doBlink() {
-    const blinkFile = this.emotesConfig.idle?.blink ?? "idle_blink.png";
+    const blinkFile = this.named("idle", this.emotesConfig.idle?.blink ?? "idle_blink.png");
     if (!this.renderer.showFrame("idle", blinkFile)) {
       this.scheduleBlink();
       return;
@@ -175,7 +224,7 @@ export class Animator {
 
     const doubleBlink = Math.random() < 0.15;
     const blinkDuration = 150;
-    const defaultFile = this.emotesConfig.idle?.default ?? "idle.png";
+    const defaultFile = this.named("idle", this.emotesConfig.idle?.default ?? "idle.png");
 
     setTimeout(() => {
       if (this.currentState !== "idle") return;
@@ -198,7 +247,7 @@ export class Animator {
   }
 
   private enterThink() {
-    const defaultFile = this.emotesConfig.think?.default ?? "think.png";
+    const defaultFile = this.named("think", this.emotesConfig.think?.default ?? "think.png");
     this.renderer.showFrame("think", defaultFile);
     this.scheduleThinkSwap();
   }
@@ -213,13 +262,13 @@ export class Animator {
   }
 
   private doThinkSwap() {
-    const hardFile = this.emotesConfig.think?.hard ?? "think_hard.png";
+    const hardFile = this.named("think", this.emotesConfig.think?.hard ?? "think_hard.png");
     if (!this.renderer.showFrame("think", hardFile, true)) {
       this.scheduleThinkSwap();
       return;
     }
 
-    const defaultFile = this.emotesConfig.think?.default ?? "think.png";
+    const defaultFile = this.named("think", this.emotesConfig.think?.default ?? "think.png");
     setTimeout(() => {
       if (this.currentState !== "think") return;
       this.renderer.showFrame("think", defaultFile, true);
@@ -233,14 +282,14 @@ export class Animator {
     this.lastTokenTime = Date.now();
     this.talkMouthClosed = false;
 
-    this.renderer.showTalkFrame(this.emotesConfig);
+    this.showTalk();
 
     this.talkTimer = setInterval(() => {
       if (this.currentState !== "talk") return;
       if (this.talkMouthClosed) {
-        this.renderer.showTalkCloseFrame();
+        this.showTalkClose();
       } else {
-        this.renderer.showTalkFrame(this.emotesConfig);
+        this.showTalk();
       }
     }, this.config.talkTickMs);
   }
@@ -301,9 +350,15 @@ export class Animator {
   private enterCycle(state: EmoteState) {
     this.cycleIndex = 0;
     this.cycleDirection = 1;
-    this.renderer.showCycleFrame(state, 0);
+    // Image sets loop through the chosen variant's files; ASCII sets use the
+    // renderer's own frame order.
+    const files = this.variantFrames(state);
+    const show = (i: number) => files.length
+      ? this.renderer.showFrame(state, files[i]!)
+      : this.renderer.showCycleFrame(state, i);
+    show(0);
 
-    const count = this.renderer.getCycleFrameCount(state);
+    const count = files.length || this.renderer.getCycleFrameCount(state);
     if (count <= 1) return;
 
     this.cycleTimer = setInterval(() => {
@@ -311,7 +366,7 @@ export class Animator {
       this.cycleIndex += this.cycleDirection;
       if (this.cycleIndex >= count - 1) this.cycleDirection = -1;
       if (this.cycleIndex <= 0) this.cycleDirection = 1;
-      this.renderer.showCycleFrame(state, this.cycleIndex);
+      show(this.cycleIndex);
     }, this.config.cycleMs);
   }
 
