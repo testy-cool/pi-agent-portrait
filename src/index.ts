@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 
 import type { EmoteState, ResolvedRenderer } from "./types.js";
 import { ALL_STATES } from "./emotes.js";
@@ -130,6 +130,76 @@ export default function (pi: ExtensionAPI) {
       }
     }
   }
+
+  /** Every set the project, the user and the extension can see, by name. */
+  function availableSets(): string[] {
+    const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
+    const roots = [
+      join(cwd, ".pi", "extensions", "pi-emote", "emotes"),
+      join(home, ".pi", "agent", "extensions", "pi-emote", "emotes"),
+      join(extDir, "emotes"),
+    ];
+    const names = new Set<string>();
+    for (const root of roots) {
+      if (!existsSync(root)) continue;
+      for (const entry of readdirSync(root, { withFileTypes: true })) {
+        if (!entry.isDirectory() || entry.name.startsWith("_") || entry.name === "test") continue;
+        const dir = join(root, entry.name);
+        if (hasImageFrames(dir) || existsSync(join(dir, "ascii.yaml"))) names.add(entry.name);
+      }
+    }
+    return [...names].sort();
+  }
+
+  /** Show a set now and save it as this project's portrait for every model. */
+  function pickEmoteSet(setName: string, ctx: any) {
+    const configPath = join(cwd, ".pi", "extensions", "pi-emote", "config.json");
+    let project: any = {};
+    try {
+      if (existsSync(configPath)) project = JSON.parse(readFileSync(configPath, "utf8"));
+    } catch {
+      ctx.ui.notify(`[pi-agent-portrait] ${configPath} is not valid JSON; not changing it.`, "error");
+      return;
+    }
+    // Replace earlier catch-all picks; keep mappings for specific models or thinking levels.
+    const kept = (Array.isArray(project.emotes) ? project.emotes : []).filter(
+      (e: any) => !((e.model ?? "*") === "*" && (e["thinking-level"] ?? "*") === "*"),
+    );
+    project.emotes = [...kept, { model: "*", "emote-set": setName }];
+    mkdirSync(dirname(configPath), { recursive: true });
+    writeFileSync(configPath, JSON.stringify(project, null, 2) + "\n");
+
+    config.emotes = loadLayeredConfig(extDir, cwd).config.emotes;
+    const before = currentEmoteSet;
+    currentEmoteSet = "";
+    switchEmoteSet(ctx.model?.id ?? "", pi.getThinkingLevel());
+    if (currentEmoteSet !== setName) {
+      ctx.ui.notify(`[pi-agent-portrait] saved ${setName}, but a mapping for this model or thinking level shows ${currentEmoteSet}.`, "warning");
+    } else if (before !== setName) {
+      animator.transitionTo("hi");
+    }
+  }
+
+  pi.registerCommand("portrait", {
+    description: "Switch the agent's portrait: /portrait <name>, or pick from a list",
+    getArgumentCompletions: (prefix) =>
+      availableSets()
+        .filter((n) => n.startsWith(prefix.trim()))
+        .map((n) => ({ value: n, label: n })),
+    handler: async (args, ctx) => {
+      const sets = availableSets();
+      let name = args.trim();
+      if (!name) {
+        name = (await ctx.ui.select(`Portrait (now: ${currentEmoteSet})`, sets)) ?? "";
+        if (!name) return;
+      }
+      if (!sets.includes(name)) {
+        ctx.ui.notify(`[pi-agent-portrait] no set called "${name}". Available: ${sets.join(", ")}`, "error");
+        return;
+      }
+      pickEmoteSet(name, ctx);
+    },
+  });
 
   // --- Events ---
 

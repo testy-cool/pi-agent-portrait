@@ -43,6 +43,8 @@ From the project folder:
 pi
 ```
 
+Switch portraits any time inside pi with `/portrait forge`, or `/portrait` alone to pick from a list. The choice is saved for that project and shows straight away.
+
 It writes the set to `.pi/extensions/pi-emote/emotes/forge/` and selects it in that folder's `.pi/extensions/pi-emote/config.json`, so each project can have a different face. It needs Python 3 with Pillow and NumPy, plus one image model:
 
 - **Codex CLI** (`--backend codex`, picked automatically when `codex` is installed): its built-in image tool, on your ChatGPT login.
@@ -88,13 +90,7 @@ Every character below except `default`, `red` and `aza_choi` was drawn with `dra
 | <img src="emotes/oana/hi/hi1.png" width="64"> | `oana` | brand strategy and art direction | drawn from a photo with `--photo-style`, plus a second take with `--variant 2` |
 | <img src="emotes/cipher/hi/hi1.png" width="64"> | `cipher` | a research agent | a handsome, modular cyborg (an older 19-frame set) |
 
-Try one in any project:
-
-```json
-{ "emotes": [{ "model": "*", "emote-set": "quill" }] }
-```
-
-in `.pi/extensions/pi-emote/config.json`.
+Try one in any project with `/portrait quill`.
 
 ### Community sets
 
