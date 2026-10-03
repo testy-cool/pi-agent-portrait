@@ -70,7 +70,9 @@ The second attached image is a photo of a real person. Draw the character as a p
 
 PHOTO_STYLE = """
 
-Art style: copy the style of the second image, not the reference sheet's. Match its realistic proportions, pixel size, shading and colours, so every cell looks like that image with a different pose and expression. From the reference sheet take only the grid, the order of poses, the framing and the dark navy background."""
+Art style: copy the style of the second image, not the reference sheet's. Match its realistic proportions, pixel size, shading and colours, so every cell looks like that image with a different pose and expression. From the reference sheet take only the grid, the order of poses, the framing and the dark navy background.
+
+Likeness matters most. In every cell copy the face from the second image exactly: the same face shape and jawline, eye shape, eye size and spacing, eyebrow shape, nose, lips, skin tone, hairline, hair parting, hair length and hair volume. Do not prettify, smooth, enlarge the eyes or make the face rounder or younger. Someone who knows this person must recognise them in every cell. Change only the expression, the head angle and the hands."""
 
 CODEX_ASK = """Use your image generation tool. Pass the attached images to it as reference images, not just as context: ref.png is the pose sheet{photo_note}.
 
