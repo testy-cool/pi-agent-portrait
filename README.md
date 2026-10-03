@@ -52,27 +52,25 @@ It writes the set to `.pi/extensions/pi-emote/emotes/forge/` and selects it in t
 
 ## What it reacts to
 
-<img src="docs/states.gif" width="220" align="right" alt="nova cycling through her states">
-
-| State | When |
-|-------|------|
-| hi | Session start |
-| idle | Nothing happening (blinks now and then) |
-| heard | You sent a message |
-| think | Reasoning tokens streaming |
-| talk | Reply streaming |
-| read | `read` tool, or reading tool output |
-| write | `write` or `edit` tool |
-| bash | `bash` tool |
-| search | A tool whose name mentions search, web, fetch, browse, scrape or crawl |
-| tool | Any other tool |
-| success | A tool call worked |
-| failure | A tool call failed |
-| wait | pi is waiting on a question for you |
-| interrupted | You pressed Esc during a reply |
-| error | The model request failed |
-| compact | Context compaction |
-| sleep | Idle for `sleepAfterMs`, 3 minutes by default; 0 turns it off |
+| | State | When |
+|-|-------|------|
+| <img src="emotes/nova/hi/hi1.png" width="64" alt="nova, hi"> | hi | Session start |
+| <img src="emotes/nova/idle/idle.png" width="64" alt="nova, idle"> | idle | Nothing happening (blinks now and then) |
+| <img src="emotes/nova/heard/heard1.png" width="64" alt="nova, heard"> | heard | You sent a message |
+| <img src="emotes/nova/think/think.png" width="64" alt="nova, think"> | think | Reasoning tokens streaming |
+| <img src="emotes/nova/talk/talk_mid.png" width="64" alt="nova, talk"> | talk | Reply streaming |
+| <img src="emotes/nova/read/read1.png" width="64" alt="nova, read"> | read | `read` tool, or reading tool output |
+| <img src="emotes/nova/write/write1.png" width="64" alt="nova, write"> | write | `write` or `edit` tool |
+| <img src="emotes/nova/bash/bash1.png" width="64" alt="nova, bash"> | bash | `bash` tool |
+| <img src="emotes/nova/search/search1.png" width="64" alt="nova, search"> | search | A tool whose name mentions search, web, fetch, browse, scrape or crawl |
+| <img src="emotes/nova/tool/tool1.png" width="64" alt="nova, tool"> | tool | Any other tool |
+| <img src="emotes/nova/success/success1.png" width="64" alt="nova, success"> | success | A tool call worked |
+| <img src="emotes/nova/failure/failure1.png" width="64" alt="nova, failure"> | failure | A tool call failed |
+| <img src="emotes/nova/wait/wait1.png" width="64" alt="nova, wait"> | wait | pi is waiting on a question for you |
+| <img src="emotes/nova/interrupted/interrupted1.png" width="64" alt="nova, interrupted"> | interrupted | You pressed Esc during a reply |
+| <img src="emotes/nova/error/error1.png" width="64" alt="nova, error"> | error | The model request failed |
+| <img src="emotes/nova/compact/compact1.png" width="64" alt="nova, compact"> | compact | Context compaction |
+| <img src="emotes/nova/sleep/sleep1.png" width="64" alt="nova, sleep"> | sleep | Idle for `sleepAfterMs`, 3 minutes by default; 0 turns it off |
 
 A set without frames for one of the newer states shows the closest older one: heard, wait and sleep show idle; bash and search show tool; interrupted and error show failure.
 
