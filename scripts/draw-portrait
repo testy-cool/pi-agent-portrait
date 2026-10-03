@@ -278,15 +278,17 @@ def main():
             sys.exit("--variant starts at 2; the first drawing is the set itself")
         if not os.path.isdir(existing):
             sys.exit(f"--variant needs an existing set at {existing}")
-        # The set's own idle frame shows the character; the reference sheet
-        # only gives the grid, so the model draws the new poses from text
-        # instead of copying the old ones.
-        a.photo = a.photo or os.path.join(existing, "idle/idle.png")
-        a.photo_style = True
-        prompt = PROMPT.format(name=a.name, role=a.role or "a helpful assistant", cells=ALT_CELLS) + PHOTO + PHOTO_STYLE
-        prompt += ("\n\nThe second image is this character as already drawn. Keep the same person, clothes,"
-                   " accessories, colours and art style exactly; only the poses are new. The reference sheet's"
-                   " poses do not apply: follow the cell list above.")
+        # Take 1's full sheet shows the character in every situation, so
+        # face, clothes and details carry over; the first image only gives
+        # the grid, and the poses come from ALT_CELLS. Given take 1 as the
+        # pose reference instead, the model copied its poses almost exactly.
+        a.photo = os.path.join(existing, "sheet.png")
+        prompt = PROMPT.format(name=a.name, role=a.role or "a helpful assistant", cells=ALT_CELLS)
+        prompt += """
+
+The character is not the one in the first image. The second image is take 1 of this character: a finished sheet of the same 30 situations. Draw take 2.
+Copy from take 1 exactly, in every cell: the face and its proportions, hair, skin, eye colour, clothes, accessories, jewellery, tattoos and any other markings, colours, pixel size and shading. Someone who has seen take 1 must see the same character.
+Do not copy take 1's poses, and ignore the poses in the first image too: use the new poses in the cell list above."""
         if a.direction:
             prompt += "\n\nExtra direction: " + a.direction
     if a.print_prompt:
