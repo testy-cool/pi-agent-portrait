@@ -143,7 +143,10 @@ def reference_sheet(path, template=None):
     cell, size = 204, 1224
     sheet = Image.new("RGB", (size, 1020), (18, 20, 33))
     for i, f in enumerate(FRAMES + NEW_FRAMES if template else FRAMES):
-        im = Image.open(os.path.join(template or os.path.join(ROOT, "emotes/default"), f)).convert("RGBA")
+        src = os.path.join(template or os.path.join(ROOT, "emotes/default"), f)
+        if not os.path.exists(src):  # a 19-frame set leaves the newer cells empty
+            continue
+        im = Image.open(src).convert("RGBA")
         im = im.resize((cell, cell), Image.NEAREST)
         bg = Image.new("RGBA", (cell, cell), (255, 255, 255, 255))
         bg.alpha_composite(im)
@@ -282,7 +285,13 @@ def main():
         # face, clothes and details carry over; the first image only gives
         # the grid, and the poses come from ALT_CELLS. Given take 1 as the
         # pose reference instead, the model copied its poses almost exactly.
+        if a.photo:
+            sys.exit("--variant draws from the set's own frames; --photo is not used with it")
         a.photo = os.path.join(existing, "sheet.png")
+        if not os.path.exists(a.photo):
+            # Sets installed without their sheet: rebuild one from the frames.
+            a.photo = os.path.join(tempfile.mkdtemp(prefix="draw-portrait-"), "sheet.png")
+            reference_sheet(a.photo, existing)
         prompt = PROMPT.format(name=a.name, role=a.role or "a helpful assistant", cells=ALT_CELLS)
         prompt += """
 
@@ -320,7 +329,7 @@ Do not copy take 1's poses, and ignore the poses in the first image too: use the
         dst = os.path.join(emotes, a.name)
         if a.variant is not None:
             # Add the new drawing next to the existing files, as name_vN.png.
-            for f in FRAMES + NEW_FRAMES:
+            for f in LAYOUTS[a.layout][0]:
                 stem, ext = os.path.splitext(f)
                 os.makedirs(os.path.dirname(os.path.join(dst, f)), exist_ok=True)
                 shutil.copy(os.path.join(new, f), os.path.join(dst, f"{stem}_v{a.variant}{ext}"))
@@ -335,7 +344,8 @@ Do not copy take 1's poses, and ignore the poses in the first image too: use the
     config = json.load(open(config_path)) if os.path.isfile(config_path) else {}
     config["emotes"] = [{"model": "*", "emote-set": a.name}]
     json.dump(config, open(config_path, "w"), indent=2)
-    print(f"portrait ready: {os.path.join(dst, 'sheet.png')}")
+    sheet_name = f"sheet_v{a.variant}.png" if a.variant is not None else "sheet.png"
+    print(f"portrait ready: {os.path.join(dst, sheet_name)}")
 
 
 main()
