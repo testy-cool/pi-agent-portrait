@@ -31,7 +31,7 @@ Start pi and the `default` character appears next to the model and token usage:
 
 ![The portrait in a pi session](pi-emote-demo.gif)
 
- It draws real images in Kitty, Ghostty, iTerm2 and WezTerm, also inside tmux (see [Multiplexers](#multiplexers)). Other terminals get an ASCII face.
+It draws real images in Kitty, Ghostty, iTerm2 and WezTerm, also inside tmux (see [Multiplexers](#multiplexers)). Other terminals get an ASCII face.
 
 ## Quick start: draw your own agent
 
