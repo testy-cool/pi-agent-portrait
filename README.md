@@ -53,6 +53,8 @@ draw-portrait --name sam --role "my coding buddy" --photo sam.jpg
 draw-portrait --name sam --role "my coding buddy" --photo sam.jpg --photo-style
 ```
 
+Add `--direction "..."` for anything else, such as how the character moves: `--direction "weird and idiosyncratic: finger guns instead of a wave, a pencil behind his ear, one eyebrow cocked"`. Each cell keeps its meaning (wave, talk, think, read and so on), so the right frame still shows for each state.
+
 For the most faithful likeness, first ask an image tool for one pixel-art portrait of the person from their photo, then pass that portrait as `--photo` with `--photo-style`. The default set's anime look otherwise makes adults look younger.
 
 It writes the set to `.pi/extensions/pi-emote/emotes/<name>/` and selects it in `.pi/extensions/pi-emote/config.json`. Drawing takes about two minutes.

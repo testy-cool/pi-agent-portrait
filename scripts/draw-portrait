@@ -10,6 +10,7 @@ usage:
                 [--backend auto|codex|azure]
   draw-portrait --name NAME --role "..." --photo face.jpg   (look like a person)
                 [--photo-style]   (draw in the photo's style, not the default set's)
+                [--direction "..."]  (extra art direction, e.g. gestures)
   draw-portrait --name NAME --sheet my-sheet.png [--dest DIR]
   draw-portrait --print-prompt --name NAME --role "..."   (for ChatGPT etc.)
   draw-portrait --print-reference out.png                 (the sheet to attach)
@@ -163,6 +164,8 @@ def main():
     p.add_argument("--backend", choices=["auto", "codex", "azure"], default="auto")
     p.add_argument("--sheet", help="cut and install a sheet you already made")
     p.add_argument("--photo", help="photo of a person the character should look like")
+    p.add_argument("--direction", default="",
+                   help="extra art direction, e.g. how the character gestures")
     p.add_argument("--photo-style", action="store_true",
                    help="draw in the photo's realistic style instead of the default set's")
     p.add_argument("--print-prompt", action="store_true")
@@ -178,6 +181,9 @@ def main():
         if not a.photo:
             sys.exit("--photo-style needs --photo")
         prompt += PHOTO_STYLE
+    if a.direction:
+        prompt += ("\n\nExtra direction, which overrides the generic pose descriptions above while keeping"
+                   " what each cell means (blink, wave, talk, think, read, type, phone, fail, tidy): " + a.direction)
     if a.print_prompt:
         return print(prompt)
 
