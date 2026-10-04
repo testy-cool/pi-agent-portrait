@@ -1,6 +1,24 @@
 # Changelog
 
-All notable changes to pi-emote will be documented in this file.
+All notable changes to pi-agent-portrait, and to pi-emote before it, are documented in this file.
+
+## v0.4.0
+
+First release as pi-agent-portrait, a fork of [pi-emote](https://github.com/cgxeiji/pi-emote) by @cgxeiji.
+
+### Added
+- **`scripts/draw-portrait`**: draws a 30-frame set for a new character with an image model (Codex CLI or Azure OpenAI), from a role and an optional `--direction`, or from a photo with `--photo` and `--photo-style`.
+- **Eleven more states**: heard, wait, interrupted, error, bash, search and sleep, plus frames for success. Sets without them fall back to the closest older state.
+- **Random takes**: `--variant N` draws the same character in different poses as `frame_vN.png`; one take is picked at random each time a state starts.
+- **`/portrait`**: switch the portrait inside pi, from a list or by name; the choice is saved for the project.
+- **Example characters**: forge, quill, nova, sprocket, moss, oana and cipher.
+- **`--template` and `--print-guide`** for drawing from a finished set and labelling its frames.
+
+### Fixed
+- The mouth stops moving once a reply has finished.
+- Older kitty (0.32) no longer squashes the portrait.
+- Every tool call now ends in success or failure, not only failed bash calls.
+
 
 ## v0.3.0
 
