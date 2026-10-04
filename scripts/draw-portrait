@@ -54,6 +54,9 @@ Design a distinct, appealing character that suits that job, with a clear look (h
 Cells, in order:
 {cells}
 
+Continuity: the cells are frames of one animated character, and cells of the same situation (blink, wave, talk, think, read, type, phone, fail, it worked, sleep, wait) play one after another. Between them change only what the cell describes. Keep the same props, held the same way and facing the same direction, and the same eye colour, glasses, clothes and lighting.
+Props work as they do in real life: someone reading faces the page, so the viewer sees the cover of a book or the back of a clipboard or sheet, never the side being read.
+
 No text, letters, numbers or logos anywhere."""
 
 CELLS = """1 idle, relaxed neutral face, eyes open
