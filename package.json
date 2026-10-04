@@ -1,7 +1,7 @@
 {
   "name": "pi-agent-portrait",
   "version": "0.3.0",
-  "description": "Animated pixel-art portrait of your pi agent, with a script that draws a new one for each agent",
+  "description": "Animated pixel-art portrait for the pi coding agent that reacts to thinking, tools, failures and idle time, with a script that draws a custom character for each agent",
   "author": "testy-cool, based on pi-emote by CGx",
   "license": "MIT",
   "scripts": {
@@ -13,11 +13,16 @@
   },
   "homepage": "https://github.com/testy-cool/pi-agent-portrait#readme",
   "keywords": [
-    "pi-package",
-    "pi-extension",
-    "pixel-art",
-    "emote",
+    "ai-agents",
     "avatar",
+    "coding-agent",
+    "emote",
+    "kitty-graphics",
+    "pi-coding-agent",
+    "pi-extension",
+    "pi-package",
+    "pixel-art",
+    "terminal",
     "tui"
   ],
   "files": [
