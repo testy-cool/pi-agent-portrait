@@ -1,6 +1,6 @@
 # pi-agent-portrait 🖼️ Your agent, with a face
 
-[![CI](https://github.com/testy-cool/pi-agent-portrait/actions/workflows/ci.yml/badge.svg)](https://github.com/testy-cool/pi-agent-portrait/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![npm](https://img.shields.io/npm/v/pi-agent-portrait.svg)](https://www.npmjs.com/package/pi-agent-portrait) [![CI](https://github.com/testy-cool/pi-agent-portrait/actions/workflows/ci.yml/badge.svg)](https://github.com/testy-cool/pi-agent-portrait/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 > An animated pixel-art portrait in the corner of your pi session. It waves hello, thinks, reads, types, winces when a command fails and falls asleep when you walk away. The unit portrait from StarCraft, for your coding agent.
 
