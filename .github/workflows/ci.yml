@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test "tests/*.test.ts"
+
+  draw-portrait:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pillow numpy
+      # No image model in CI: check that the script parses and that the
+      # offline parts (prompt, reference sheet, guide) run.
+      - run: scripts/draw-portrait --print-prompt --name forge --role "a deploy agent" > /dev/null
+      - run: scripts/draw-portrait --print-reference "$RUNNER_TEMP/ref.png"
+      - run: scripts/draw-portrait --print-guide emotes/nova "$RUNNER_TEMP/guide.png"

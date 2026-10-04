@@ -1,0 +1,11 @@
+name: Idea or new state
+description: Something the portrait should react to, or a drawing option
+labels: [enhancement]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What should happen, and when?
+      placeholder: Show a "waiting on network" pose while a tool has been running for more than 30 seconds.
+    validations:
+      required: true

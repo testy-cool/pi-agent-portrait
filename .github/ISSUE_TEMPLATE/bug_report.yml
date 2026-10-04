@@ -1,0 +1,28 @@
+name: Bug report
+description: The portrait or draw-portrait did something wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal, and tmux if you use it
+      placeholder: Ghostty 1.2 inside tmux 3.5
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: pi version and pi-agent-portrait version
+      placeholder: pi 1.0.1, pi-agent-portrait 0.3.0
+  - type: textarea
+    id: log
+    attributes:
+      label: Debug log
+      description: Set "debug" to true in .pi/extensions/pi-emote/config.json, reproduce, and paste debug.log from the extension folder.
+      render: text
