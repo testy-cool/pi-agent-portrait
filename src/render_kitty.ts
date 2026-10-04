@@ -55,6 +55,9 @@ export class KittyRenderer extends BaseImageRenderer {
       q: 2,
       C: 1,
       c: this.size,
+      // Older kitty (0.32, as shipped by Ubuntu) scales only the width when
+      // given just columns, squashing the portrait; rows keeps it in shape.
+      r: rows,
       i: this.imageId,
     };
     if (yOffset > 0) {
