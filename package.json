@@ -24,7 +24,7 @@
     "src",
     "emotes",
     "scripts",
-    "!emotes/_test",
+    "!emotes/test",
     "!emotes/_unused",
     "config.json",
     "README.md",
