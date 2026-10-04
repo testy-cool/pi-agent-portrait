@@ -26,7 +26,7 @@ Based on [pi-emote](https://github.com/cgxeiji/pi-emote) by [@cgxeiji](https://g
 ## Install
 
 ```bash
-pi install npm:pi-agent-portrait
+pi install git:github.com/testy-cool/pi-agent-portrait
 ```
 
 Start pi and the `default` character appears next to the model and token usage (Claude models get `red`, set in the extension's `config.json`). Here `nova` fixes a bug, then `/portrait forge` swaps her for `forge`:
@@ -40,7 +40,7 @@ It draws real images in Kitty, Ghostty, iTerm2 and WezTerm, also inside tmux (se
 From the project folder:
 
 ```bash
-~/.pi/agent/npm/node_modules/pi-agent-portrait/scripts/draw-portrait \
+~/.pi/agent/git/github.com/testy-cool/pi-agent-portrait/scripts/draw-portrait \
   --name forge --role "a deploy agent"
 pi
 ```
